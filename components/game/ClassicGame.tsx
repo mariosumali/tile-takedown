@@ -14,7 +14,7 @@ import PieceShape from '../PieceShape';
 import { useGameStore } from '@/stores/useGameStore';
 import { useSettingsStore } from '@/stores/useSettingsStore';
 import { useStatsStore } from '@/stores/useStatsStore';
-import { boardDensity, canShapeFit } from '@/lib/engine/grid';
+import { boardDensity, canPlace, canShapeFit } from '@/lib/engine/grid';
 import { rotateShape } from '@/lib/engine/pieces';
 import { getClearedLines } from '@/lib/engine/grid';
 import { placePiece } from '@/lib/engine/grid';
@@ -419,9 +419,18 @@ export default function ClassicGame() {
     return () => window.removeEventListener('keydown', onKey);
   }, [run, selectedTrayIndex, hoveredAnchor, selectTray, undo, rotateSelected, tryPlace, rotationEnabled]);
 
-  // Preclear detection: compute which rows/cols would clear if ghost placed
+  // Preclear detection: compute which rows/cols would clear if ghost placed.
+  // `ghost.legal` is computed in the store against whatever shape was passed
+  // to `setGhost` last; if the selected piece changes shape this render
+  // (rotate, or tray refill), the ghost flag can briefly lag the active
+  // piece. Re-check bounds here with the CURRENT shape before calling
+  // placePiece — otherwise an overhanging piece writes past the board and
+  // crashes the page.
   const preclear = useMemo(() => {
-    if (!run || !activePiece || !ghost || !ghost.legal) {
+    if (!run || !activePiece || !ghost) {
+      return { rows: [] as number[], cols: [] as number[] };
+    }
+    if (!canPlace(run.board, activePiece.shape, ghost.row, ghost.col)) {
       return { rows: [] as number[], cols: [] as number[] };
     }
     const placed = placePiece(run.board, activePiece, ghost.row, ghost.col);

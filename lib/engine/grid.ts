@@ -29,7 +29,12 @@ export function canPlace(
   return true;
 }
 
-/** Place the piece, returning a new board. Does NOT clear lines. */
+/**
+ * Place the piece, returning a new board. Does NOT clear lines.
+ * Cells that would land outside the grid are silently skipped — callers are
+ * expected to have validated placement with `canPlace` first. This guard is
+ * purely defensive so a stale ghost anchor can never crash the render.
+ */
 export function placePiece(
   board: BoardState,
   piece: Piece,
@@ -38,7 +43,10 @@ export function placePiece(
 ): BoardState {
   const next = cloneBoard(board);
   for (const [dr, dc] of pieceCells(piece.shape)) {
-    next[row + dr][col + dc] = piece.color;
+    const r = row + dr;
+    const c = col + dc;
+    if (r < 0 || c < 0 || r >= BOARD_SIZE || c >= BOARD_SIZE) continue;
+    next[r][c] = piece.color;
   }
   return next;
 }
