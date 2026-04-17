@@ -13,7 +13,7 @@ export default function Footer() {
           aria-hidden="true"
         />
         <span className="footer-text">
-          tile takedown &middot; v0.1.0 &middot; made with warmth
+          tile takedown &middot; v0.1.0 &middot; Created by Mario Sumali
         </span>
       </div>
     </footer>
