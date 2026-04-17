@@ -495,16 +495,20 @@ export default function ClassicGame() {
         <div className="board-wrap" ref={trayWrapRef}>
           <GameBoard
             board={run.board}
-            // Hover ghost + preclear preview temporarily disabled — the user
-            // wants pieces to just drop into place with no on-board preview.
-            // The floating drag-ghost that follows the cursor (rendered below)
-            // stays, so you still see what you're carrying.
-            // ghostShape={activePiece?.shape ?? null}
-            // ghostAnchor={ghost ? { row: ghost.row, col: ghost.col } : null}
-            // ghostColor={activePiece?.color as PieceColor | null}
-            // ghostLegal={ghost?.legal ?? true}
-            // preclearRows={preclear.rows}
-            // preclearCols={preclear.cols}
+            // On-board ghost + preclear preview only show when a piece is
+            // selected via keyboard or tap-to-select — NOT during an active
+            // pointer drag, where the floating drag-ghost already follows
+            // the cursor and a second ghost on the board would double up.
+            ghostShape={!isDragging ? activePiece?.shape ?? null : null}
+            ghostAnchor={
+              !isDragging && ghost ? { row: ghost.row, col: ghost.col } : null
+            }
+            ghostColor={
+              !isDragging ? (activePiece?.color as PieceColor | null) ?? null : null
+            }
+            ghostLegal={!isDragging ? ghost?.legal ?? true : true}
+            preclearRows={!isDragging ? preclear.rows : []}
+            preclearCols={!isDragging ? preclear.cols : []}
             scorePopup={
               scorePopup && scorePopup.amount > 0
                 ? {
@@ -529,7 +533,11 @@ export default function ClassicGame() {
           <div key={wobbleKey} className={wobbleKey ? 'tray-wobble' : ''}>
             <Tray
               pieces={run.tray}
-              activeIndex={selectedTrayIndex}
+              // `activeIndex` drives the "Dragging" chip + mustard fill and
+              // should only light up while the user is actually mid-drag.
+              // `selectedIndex` handles the keyboard / tap-to-select highlight.
+              activeIndex={isDragging ? selectedTrayIndex : null}
+              selectedIndex={!isDragging ? selectedTrayIndex : null}
               onPointerDown={handleTrayDown}
               hint={
                 tapToSelect
