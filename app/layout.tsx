@@ -16,14 +16,47 @@ const fraunces = Fraunces({
   display: 'swap',
 });
 
+const siteUrl =
+  process.env.NEXT_PUBLIC_SITE_URL ?? 'https://tiles.mariosumali.com';
+const title = 'Tile Takedown';
+const description =
+  'A cozy browser puzzle. Place pieces, clear rows, watch the combo stack.';
+
 export const metadata: Metadata = {
-  title: 'Tile Takedown',
-  description:
-    'A cozy browser puzzle. Place pieces, clear rows, watch the combo stack.',
+  metadataBase: new URL(siteUrl),
+  title: {
+    default: title,
+    template: '%s · Tile Takedown',
+  },
+  description,
+  applicationName: title,
+  keywords: [
+    'puzzle',
+    'block puzzle',
+    'tile game',
+    'browser game',
+    'cozy game',
+    'combo',
+  ],
+  authors: [{ name: 'Mario Sumali', url: 'https://mariosumali.com' }],
+  creator: 'Mario Sumali',
+  openGraph: {
+    type: 'website',
+    url: siteUrl,
+    siteName: title,
+    title,
+    description,
+    locale: 'en_US',
+  },
+  twitter: {
+    card: 'summary_large_image',
+    title,
+    description,
+  },
   appleWebApp: {
     capable: true,
     statusBarStyle: 'default',
-    title: 'Tile Takedown',
+    title,
   },
   formatDetection: {
     telephone: false,
