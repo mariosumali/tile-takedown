@@ -15,6 +15,14 @@ type Event =
 
 let ctx: AudioContext | null = null;
 let gestureArmed = false;
+// Session-level mute flag. The UI's "M" toggle in ClassicGame flips this so
+// store-initiated sounds (e.g. playClearSfx) honor the same switch as the
+// parameterised `playSfx` calls.
+let sessionMuted = false;
+
+export function setSessionMuted(muted: boolean): void {
+  sessionMuted = muted;
+}
 
 if (typeof window !== 'undefined') {
   const arm = () => {
@@ -110,6 +118,7 @@ export function playSfx(event: Event, enabled: boolean, volume = 1): void {
  */
 export function playClearSfx(lineCount: number, comboMult: number): void {
   if (typeof window === 'undefined') return;
+  if (sessionMuted) return;
   const volume = useSettingsStore.getState().sfxVolume;
   if (volume <= 0) return;
   const c = getCtx();
