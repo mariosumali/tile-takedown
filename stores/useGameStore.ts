@@ -489,6 +489,8 @@ export const useGameStore = create<State>((set, get) => {
       return true;
     },
 
+    commitClear: () => set({ clearingLines: [], clearingBoard: null }),
+
     dismissToast: () => set({ toast: null }),
     dismissScorePopup: () => set({ scorePopup: null }),
   };
