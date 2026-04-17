@@ -181,10 +181,19 @@ export default function ClassicGame() {
       const target = document.elementFromPoint(x, y);
       return target?.closest('[data-row][data-col]') as HTMLElement | null;
     };
+    // Hit-test the board at the same visual position where the ghost is
+    // painted. On touch, the ghost is lifted up by one cell+gap so the finger
+    // doesn't cover it — we must offset the hit test by the same amount or
+    // placement will land one row below where the user sees the piece.
+    const hitTestY = (clientY: number) => {
+      const step = cellDim.cell + cellDim.gap;
+      const touchLift = pointerKind === 'touch' ? step : 0;
+      return clientY - touchLift;
+    };
     const onMove = (e: PointerEvent) => {
       dragPosRef.current = { x: e.clientX, y: e.clientY };
       scheduleGhostUpdate();
-      const cell = findCellAt(e.clientX, e.clientY);
+      const cell = findCellAt(e.clientX, hitTestY(e.clientY));
       if (cell) {
         const row = Number(cell.dataset.row) - pickupOffset.r;
         const col = Number(cell.dataset.col) - pickupOffset.c;
@@ -196,7 +205,7 @@ export default function ClassicGame() {
       }
     };
     const onUp = (e: PointerEvent) => {
-      const cell = findCellAt(e.clientX, e.clientY);
+      const cell = findCellAt(e.clientX, hitTestY(e.clientY));
       if (cell && run && selectedTrayIndex !== null) {
         const row = Number(cell.dataset.row) - pickupOffset.r;
         const col = Number(cell.dataset.col) - pickupOffset.c;
@@ -225,7 +234,7 @@ export default function ClassicGame() {
         ghostRafRef.current = null;
       }
     };
-  }, [selectedTrayIndex, tryPlace, selectTray, run, muted, tapToSelect, pickupOffset, sfxVolume, scheduleGhostUpdate]);
+  }, [selectedTrayIndex, tryPlace, selectTray, run, muted, tapToSelect, pickupOffset, sfxVolume, scheduleGhostUpdate, cellDim, pointerKind]);
 
   const trayWrapRef = useRef<HTMLDivElement>(null);
   const [wobbleKey, setWobbleKey] = useState(0);
