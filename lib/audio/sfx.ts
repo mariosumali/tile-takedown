@@ -108,13 +108,12 @@ export function playSfx(event: Event, enabled: boolean, volume = 1): void {
 }
 
 /**
- * Plays the line-clear signature tone. Pitched up by a perfect fifth (×1.5)
- * for each additional simultaneous line. When `comboMult > 1`, a second
- * harmonic at 1.5× the base rides along at 0.3 volume.
+ * Plays a satisfying mouth-pop for line clears: a sine with a rapid
+ * exponential pitch drop plus a short bandpassed noise click for snap.
+ * Each additional simultaneous line stacks another rapid-fire pop at a
+ * slightly higher pitch. Combos add a sparkle pop tail.
  *
- * Envelope: 8ms attack / 80ms sustain / 90ms exponential release (~180ms total).
- * Master gain: 0.18, scaled by `sfxVolume`. No-ops if volume is 0 or the
- * AudioContext hasn't been unlocked by a user gesture yet.
+ * No-ops if volume is 0 or the AudioContext hasn't been unlocked yet.
  */
 export function playClearSfx(lineCount: number, comboMult: number): void {
   if (typeof window === 'undefined') return;
@@ -125,32 +124,66 @@ export function playClearSfx(lineCount: number, comboMult: number): void {
   if (!c) return;
 
   const lines = Math.max(1, lineCount);
-  const base = 520 * Math.pow(1.5, lines - 1);
-  const master = 0.18 * volume;
+  const master = 0.26 * volume;
 
-  const attack = 0.008;
-  const sustain = 0.08;
-  const release = 0.09;
-  const t0 = c.currentTime;
-
-  const tone = (freq: number, volMult: number) => {
+  const pop = (
+    startAt: number,
+    startFreq: number,
+    endFreq: number,
+    dur: number,
+    gain: number,
+  ) => {
     const osc = c.createOscillator();
     const g = c.createGain();
     osc.type = 'sine';
-    osc.frequency.value = freq;
-    const peak = Math.max(0.0001, master * volMult);
-    g.gain.setValueAtTime(0.0001, t0);
-    g.gain.exponentialRampToValueAtTime(peak, t0 + attack);
-    g.gain.setValueAtTime(peak, t0 + attack + sustain);
-    g.gain.exponentialRampToValueAtTime(0.0001, t0 + attack + sustain + release);
+    osc.frequency.setValueAtTime(startFreq, startAt);
+    osc.frequency.exponentialRampToValueAtTime(
+      Math.max(60, endFreq),
+      startAt + dur * 0.55,
+    );
+    const peak = Math.max(0.0001, gain);
+    g.gain.setValueAtTime(0.0001, startAt);
+    g.gain.exponentialRampToValueAtTime(peak, startAt + 0.004);
+    g.gain.exponentialRampToValueAtTime(0.0001, startAt + dur);
     osc.connect(g);
     g.connect(c.destination);
-    osc.start(t0);
-    osc.stop(t0 + attack + sustain + release + 0.02);
+    osc.start(startAt);
+    osc.stop(startAt + dur + 0.02);
+
+    // Tight bandpassed noise burst gives the pop its percussive lip-snap.
+    const noiseDur = 0.018;
+    const bufferSize = Math.max(1, Math.floor(c.sampleRate * noiseDur));
+    const buffer = c.createBuffer(1, bufferSize, c.sampleRate);
+    const data = buffer.getChannelData(0);
+    for (let i = 0; i < bufferSize; i++) {
+      data[i] = (Math.random() * 2 - 1) * (1 - i / bufferSize);
+    }
+    const noise = c.createBufferSource();
+    noise.buffer = buffer;
+    const bp = c.createBiquadFilter();
+    bp.type = 'bandpass';
+    bp.frequency.value = startFreq;
+    bp.Q.value = 1.4;
+    const ng = c.createGain();
+    ng.gain.setValueAtTime(peak * 0.5, startAt);
+    ng.gain.exponentialRampToValueAtTime(0.0001, startAt + noiseDur);
+    noise.connect(bp);
+    bp.connect(ng);
+    ng.connect(c.destination);
+    noise.start(startAt);
+    noise.stop(startAt + noiseDur + 0.01);
   };
 
-  tone(base, 1);
-  if (comboMult > 1) tone(base * 1.5, 0.3);
+  const t0 = c.currentTime;
+  for (let i = 0; i < lines; i++) {
+    const startFreq = 880 + i * 220;
+    const endFreq = 200 + i * 70;
+    pop(t0 + i * 0.045, startFreq, endFreq, 0.18, master);
+  }
+
+  if (comboMult > 1) {
+    pop(t0 + lines * 0.045, 1600, 700, 0.14, master * 0.5);
+  }
 }
 
 export function vibrate(pattern: number | number[], enabled: boolean): void {
