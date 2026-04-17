@@ -13,7 +13,6 @@ import type {
   TrayPiece,
 } from '@/lib/types';
 import {
-  BOARD_SIZE,
   boardDensity,
   boardIsEmpty,
   canAnyPieceFit,
@@ -58,12 +57,14 @@ type State = {
   toast: { id: string; name: string; desc: string; icon?: string } | null;
   /** monotonic turn index, incremented after each placement resolves */
   turn: number;
-  /** Cells currently running their clear-pop exit animation, as [row, col] pairs. */
-  clearingLines: number[][];
+  /** Rows currently running their clear-pop animation. */
+  clearingRows: number[];
+  /** Cols currently running their clear-pop animation. */
+  clearingCols: number[];
   /**
-   * Pre-clear board snapshot used only for visuals while `clearingLines` is
-   * non-empty. GameBoard renders this so tiles retain their color through the
-   * pop sequence. Reset by `commitClear()`.
+   * Pre-clear board snapshot used only for visuals while the pop animation is
+   * active. GameBoard reads this for cleared cells so tiles retain their color
+   * through the pop sequence. Reset by `commitClear()`.
    */
   clearingBoard: BoardState | null;
 
@@ -180,7 +181,8 @@ export const useGameStore = create<State>((set, get) => {
     lastClear: null,
     toast: null,
     turn: 0,
-    clearingLines: [],
+    clearingRows: [],
+    clearingCols: [],
     clearingBoard: null,
 
     hydrate: () => {
@@ -206,7 +208,8 @@ export const useGameStore = create<State>((set, get) => {
         scorePopup: null,
         lastClear: null,
         turn: 0,
-        clearingLines: [],
+        clearingRows: [],
+        clearingCols: [],
         clearingBoard: null,
       });
       persistRun(run);
@@ -355,32 +358,10 @@ export const useGameStore = create<State>((set, get) => {
         ? { rows: cleared.rows, cols: cleared.cols, at: Date.now() }
         : null;
 
-      // Compute the flat cell list driving the pop animation. Row-clear cells
-      // come first, then col-clear cells that aren't already accounted for.
-      const clearingLines: number[][] = [];
-      let clearingBoard: BoardState | null = null;
-      if (cleared.totalLines > 0) {
-        const seen = new Set<string>();
-        for (const rr of cleared.rows) {
-          for (let cc = 0; cc < BOARD_SIZE; cc++) {
-            const k = `${rr}-${cc}`;
-            if (!seen.has(k)) {
-              seen.add(k);
-              clearingLines.push([rr, cc]);
-            }
-          }
-        }
-        for (const cc of cleared.cols) {
-          for (let rr = 0; rr < BOARD_SIZE; rr++) {
-            const k = `${rr}-${cc}`;
-            if (!seen.has(k)) {
-              seen.add(k);
-              clearingLines.push([rr, cc]);
-            }
-          }
-        }
-        clearingBoard = placed;
-      }
+      const clearingRows = cleared.totalLines > 0 ? cleared.rows.slice() : [];
+      const clearingCols = cleared.totalLines > 0 ? cleared.cols.slice() : [];
+      const clearingBoard: BoardState | null =
+        cleared.totalLines > 0 ? placed : null;
 
       set({
         run: nextRun,
@@ -392,7 +373,8 @@ export const useGameStore = create<State>((set, get) => {
         scorePopup: cleared.totalLines > 0 ? popup : null,
         lastClear,
         turn: state.turn + 1,
-        clearingLines,
+        clearingRows,
+        clearingCols,
         clearingBoard,
       });
 
@@ -484,12 +466,16 @@ export const useGameStore = create<State>((set, get) => {
         undoStack: undoStack.slice(0, -1),
         scorePopup: null,
         lastClear: null,
+        clearingRows: [],
+        clearingCols: [],
+        clearingBoard: null,
       });
       persistRun(nextRun);
       return true;
     },
 
-    commitClear: () => set({ clearingLines: [], clearingBoard: null }),
+    commitClear: () =>
+      set({ clearingRows: [], clearingCols: [], clearingBoard: null }),
 
     dismissToast: () => set({ toast: null }),
     dismissScorePopup: () => set({ scorePopup: null }),
