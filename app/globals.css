@@ -29,6 +29,13 @@
   --r-lg: 16px;
   --r-xl: 20px;
   --r-pill: 999px;
+
+  /* Board + tray cell sizing — overridden per breakpoint.
+     Tray intentionally matches the board so pieces keep their scale when
+     lifted off the tray. */
+  --board-cell: 60px;
+  --board-gap: 5px;
+  --tray-cell: var(--board-cell);
 }
 
 /* Linen theme */
@@ -78,6 +85,9 @@ body {
   position: relative;
   overflow-x: hidden;
   transition: background-color 320ms ease-out;
+  -webkit-tap-highlight-color: transparent;
+  /* Disable iOS double-tap zoom on controls, without blocking pinch */
+  touch-action: manipulation;
 }
 a {
   color: inherit;
@@ -118,6 +128,8 @@ button {
 /* ---------- Nav ---------- */
 .nav {
   padding: 24px 40px;
+  padding-left: max(40px, env(safe-area-inset-left));
+  padding-right: max(40px, env(safe-area-inset-right));
   display: flex;
   align-items: center;
   justify-content: space-between;
@@ -150,6 +162,87 @@ button {
   background: var(--paper-2);
 }
 .nav-link.active {
+  background: var(--ink);
+  color: var(--paper);
+}
+
+/* Hamburger toggle (hidden on desktop) */
+.nav-toggle {
+  display: none;
+  width: 44px;
+  height: 44px;
+  background: var(--paper);
+  border: 2px solid var(--ink);
+  border-radius: 12px;
+  box-shadow: var(--shadow-sm);
+  align-items: center;
+  justify-content: center;
+  flex-direction: column;
+  gap: 4px;
+  padding: 10px;
+  cursor: pointer;
+  transition: transform 120ms, box-shadow 120ms;
+  touch-action: manipulation;
+}
+.nav-toggle span {
+  display: block;
+  width: 100%;
+  height: 2.5px;
+  background: var(--ink);
+  border-radius: 2px;
+  transition: transform 180ms ease, opacity 120ms ease;
+}
+.nav-toggle.open span:nth-child(1) {
+  transform: translateY(6.5px) rotate(45deg);
+}
+.nav-toggle.open span:nth-child(2) {
+  opacity: 0;
+}
+.nav-toggle.open span:nth-child(3) {
+  transform: translateY(-6.5px) rotate(-45deg);
+}
+
+/* Mobile nav sheet */
+.nav-sheet-backdrop {
+  position: fixed;
+  inset: 0;
+  background: rgba(28, 23, 20, 0.45);
+  z-index: 90;
+  animation: fade-in 200ms ease-out;
+}
+.nav-sheet {
+  position: fixed;
+  top: calc(env(safe-area-inset-top, 0px) + 76px);
+  left: 16px;
+  right: 16px;
+  background: var(--paper);
+  border: 2px solid var(--ink);
+  border-radius: var(--r-xl);
+  box-shadow: var(--shadow-lg);
+  padding: 12px;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  z-index: 91;
+  animation: sheet-in 220ms cubic-bezier(0.34, 1.56, 0.64, 1);
+}
+@keyframes sheet-in {
+  from { transform: translateY(-12px); opacity: 0; }
+  to { transform: translateY(0); opacity: 1; }
+}
+.nav-sheet-link {
+  padding: 14px 18px;
+  border-radius: var(--r-md);
+  font-family: var(--font-display), 'Caprasimo', serif;
+  font-size: 20px;
+  color: var(--ink);
+  transition: background 120ms;
+}
+.nav-sheet-link:hover,
+.nav-sheet-link:active {
+  background: var(--paper-2);
+}
+.nav-sheet-link.active {
   background: var(--ink);
   color: var(--paper);
 }
@@ -441,13 +534,17 @@ button {
 /* ---------- PieceShape (tray piece render) ---------- */
 .piece-shape {
   display: grid;
-  /* Board-size vars: kept in sync with .board-grid cell sizing below.
-     Overridden in the mobile media query. */
+}
+/* Mini variant (marketing demos) uses fixed, non-responsive vars so the
+   promo cards don't jitter with viewport resizes. Tray + board variants
+   inherit `--board-cell` / `--board-gap` / `--tray-cell` from :root so
+   in-game pieces stay in lockstep with the actual board cell size. */
+.piece-shape.sz-mini {
   --board-cell: 60px;
   --board-gap: 5px;
 }
 @media (max-width: 680px) {
-  .piece-shape {
+  .piece-shape.sz-mini {
     --board-cell: 36px;
     --board-gap: 3px;
   }
@@ -1033,9 +1130,9 @@ button {
 }
 .board-grid {
   display: grid;
-  grid-template-columns: repeat(8, 60px);
-  grid-template-rows: repeat(8, 60px);
-  gap: 5px;
+  grid-template-columns: repeat(8, var(--board-cell));
+  grid-template-rows: repeat(8, var(--board-cell));
+  gap: var(--board-gap);
 }
 .board-grid .cell {
   background: var(--paper-2);
@@ -1067,12 +1164,10 @@ button {
 .board-grid .cell.ghost.fill-plum { background: var(--plum); opacity: 0.5; }
 .board-grid .cell.ghost.fill-cream { background: var(--cream-tile); opacity: 0.55; }
 
-/* ---------- Score popup ---------- */
+/* ---------- Score popup ----------
+   Layout only; motion is owned by framer-motion in ScorePopup.tsx so the
+   two systems don't fight over `transform` / `opacity`. */
 .score-popup {
-  position: absolute;
-  left: 50%;
-  top: 48%;
-  transform: translate(-50%, -50%) rotate(-3deg);
   background: var(--tomato);
   color: var(--paper);
   border: 2px solid var(--ink);
@@ -1080,9 +1175,8 @@ button {
   padding: 14px 22px;
   font-family: var(--font-display), 'Caprasimo', serif;
   box-shadow: var(--shadow-lg);
-  pointer-events: none;
-  animation: float-up 2.4s ease-out infinite;
   white-space: nowrap;
+  z-index: 3;
 }
 .score-popup .plus {
   font-size: 38px;
@@ -1093,13 +1187,6 @@ button {
   color: var(--mustard);
   margin-left: 10px;
   vertical-align: 4px;
-}
-
-@keyframes float-up {
-  0% { opacity: 0; transform: translate(-50%, -30%) rotate(-3deg); }
-  18% { opacity: 1; transform: translate(-50%, -50%) rotate(-3deg); }
-  80% { opacity: 1; transform: translate(-50%, -84%) rotate(-5deg); }
-  100% { opacity: 0; transform: translate(-50%, -104%) rotate(-6deg); }
 }
 
 /* ---------- Tray ---------- */
@@ -1128,15 +1215,28 @@ button {
   font-variation-settings: 'opsz' 14, 'wght' 500;
 }
 .tray {
-  display: grid;
-  grid-template-columns: repeat(3, 1fr);
+  display: flex;
+  justify-content: space-between;
+  align-items: stretch;
   gap: 14px;
+  /* Pieces now render at board scale, so the tray itself needs room to grow
+     past the board's own width. Any overflow scrolls instead of clipping. */
+  overflow-x: auto;
+  overflow-y: visible;
+  scrollbar-width: thin;
 }
 .tray-slot {
+  flex: 1 1 0;
+  /* Give each slot enough room for a 3-wide piece at board scale by default,
+     which covers all shipped pieces. A wider 5-wide horizontal piece will
+     grow the slot past this floor. */
+  min-width: calc(var(--board-cell) * 3 + var(--board-gap) * 2 + 32px);
+  /* And enough room vertically for a 3-tall piece at board scale, matching
+     the tallest piece in the classic set. */
+  min-height: calc(var(--board-cell) * 3 + var(--board-gap) * 2 + 32px);
   background: var(--paper-2);
   border: 2px dashed var(--ink);
   border-radius: 14px;
-  min-height: 148px;
   display: flex;
   align-items: center;
   justify-content: center;
@@ -1180,8 +1280,8 @@ button {
 
 /* Tray piece cell (bigger than mini) */
 .tp-cell.sz-tray {
-  width: 26px;
-  height: 26px;
+  width: var(--tray-cell);
+  height: var(--tray-cell);
 }
 
 /* ---------- Next tray card ---------- */
@@ -1310,6 +1410,8 @@ button {
 }
 
 /* ---------- Responsive ---------- */
+
+/* Tablet / small laptop */
 @media (max-width: 1100px) {
   .hero {
     grid-template-columns: 1fr;
@@ -1340,36 +1442,252 @@ button {
   .card.combo .big { font-size: 38px; }
   .topbar { padding: 16px 20px; }
 }
-@media (max-width: 680px) {
-  .board-grid {
-    grid-template-columns: repeat(8, 36px);
-    grid-template-rows: repeat(8, 36px);
-    gap: 3px;
+
+/* Mobile (phones in portrait, most tablets in portrait) */
+@media (max-width: 760px) {
+  /* Nav: swap links for hamburger */
+  .nav {
+    padding: 18px 20px;
+    padding-left: max(20px, env(safe-area-inset-left));
+    padding-right: max(20px, env(safe-area-inset-right));
   }
-  .tp-cell.sz-tray { width: 18px; height: 18px; }
-  .tray-slot { min-height: 96px; }
-  .left-stack,
-  .right-stack { grid-template-columns: 1fr 1fr; }
-  .tb-center { display: none; }
-  .brand-name { display: none; }
-  .mode-pill { padding: 6px 12px; font-size: 13px; }
-  .icon-btn { width: 38px; height: 38px; }
   .nav-links { display: none; }
-  .nav { padding: 20px; }
-  .hero { padding: 20px 20px 60px; }
-  .section { padding: 48px 20px; }
+  .nav-toggle { display: inline-flex; }
+  .brand-name { font-size: 22px; }
+
+  /* Hero */
+  .hero {
+    padding: 20px 20px 56px;
+    padding-left: max(20px, env(safe-area-inset-left));
+    padding-right: max(20px, env(safe-area-inset-right));
+    gap: 44px;
+  }
+  .hero h1 {
+    font-size: clamp(56px, 16vw, 92px);
+    margin-bottom: 20px;
+  }
+  .hero h1 .repeat::after {
+    height: 10px;
+    bottom: 6px;
+  }
+  .hero .lede {
+    font-size: 17px;
+    margin-bottom: 28px;
+  }
+  .cta-row { margin-bottom: 36px; }
+  .cta-row .btn {
+    flex: 1 1 0;
+    justify-content: center;
+    padding: 14px 20px;
+    font-size: 16px;
+  }
+  .hero-meta { max-width: 100%; }
+  .meta-card { padding: 14px 16px; }
+  .meta-card .big { font-size: 30px; }
+
+  /* Sections */
+  .section {
+    padding: 56px 20px;
+    padding-left: max(20px, env(safe-area-inset-left));
+    padding-right: max(20px, env(safe-area-inset-right));
+  }
+  .section-head {
+    margin-bottom: 28px;
+    gap: 16px;
+  }
+  .section-head h2 {
+    font-size: clamp(36px, 9vw, 56px);
+  }
+  .section-head .lede { font-size: 16px; }
+
+  /* Modes */
   .modes,
   .features,
   .stats-row,
   .controls-grid {
     grid-template-columns: 1fr;
   }
-  .badge-sticker {
-    top: -20px;
-    right: -10px;
-    width: 84px;
-    height: 84px;
+  .modes { gap: 18px; }
+  .mode-card { padding: 24px; }
+  .mode-card h3 { font-size: 60px; }
+  .mode-card p { font-size: 16px; margin-bottom: 20px; }
+  .mode-card .go {
+    right: 20px;
+    bottom: 20px;
+    width: 42px;
+    height: 42px;
   }
+
+  /* Stats */
+  .stat-card { padding: 18px; }
+  .stat-card .big-num { font-size: 44px; }
+
+  /* Controls */
+  .controls-panel { padding: 24px 20px; }
+  .controls-grid { gap: 14px; }
+
+  /* Footer */
+  .footer {
+    margin-top: 60px;
+    padding: 28px 20px;
+    padding-left: max(20px, env(safe-area-inset-left));
+    padding-right: max(20px, env(safe-area-inset-right));
+    padding-bottom: max(28px, env(safe-area-inset-bottom));
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 20px;
+  }
+  .footer-links { flex-wrap: wrap; }
+
+  /* Demo board: tame rotation + badge so it fits a narrow column */
+  .demo-wrap { transform: rotate(1deg); }
+  .demo-board { padding: 14px; }
+  .demo-header { margin-bottom: 12px; }
+  .demo-tray-mini {
+    margin-top: 10px;
+    gap: 8px;
+  }
+  .tray-slot-mini { min-height: 60px; padding: 8px; }
+  .badge-sticker {
+    top: -16px;
+    right: -6px;
+    width: 76px;
+    height: 76px;
+  }
+  .badge-sticker .b-top { font-size: 16px; }
+  .badge-sticker .b-bot { font-size: 9px; }
+
+  /* Game page — top bar */
+  .topbar {
+    padding: 14px 16px;
+    padding-left: max(16px, env(safe-area-inset-left));
+    padding-right: max(16px, env(safe-area-inset-right));
+  }
+  .tb-left { gap: 10px; }
+  .brand-lockup { padding: 6px 12px 6px 6px; }
+  .brand-lockup .brand-name { display: none; }
+  .tb-center { display: none; }
+  .mode-pill { padding: 6px 12px; font-size: 13px; }
+  .tb-right { gap: 6px; }
+  .icon-btn { width: 40px; height: 40px; font-size: 16px; }
+
+  /* Game page — stage layout */
+  .stage {
+    padding: 16px;
+    padding-left: max(12px, env(safe-area-inset-left));
+    padding-right: max(12px, env(safe-area-inset-right));
+    padding-bottom: max(40px, env(safe-area-inset-bottom));
+    gap: 14px;
+  }
+
+  /* Game page — responsive board cells. `--tray-cell` tracks `--board-cell`
+     via the root declaration, so overriding the board alone keeps the tray
+     pieces identical in scale. */
+  :root {
+    --board-cell: min(11.2vw, 52px);
+    --board-gap: 4px;
+  }
+  .board { padding: 10px; }
+  .board-chrome { padding: 0 2px; }
+  .live-chip { padding: 6px 10px; font-size: 12px; }
+  .density-chip { font-size: 12px; }
+  .density-chip strong { font-size: 15px; }
+
+  /* HUD on mobile — three cards stacked horizontally, compact */
+  .left-stack,
+  .right-stack {
+    grid-template-columns: repeat(3, 1fr);
+    gap: 10px;
+  }
+  .card {
+    padding: 14px 14px;
+    border-radius: var(--r-md);
+  }
+  .card .big { font-size: 26px; margin-top: 6px; }
+  .card.combo .big { font-size: 28px; }
+  .card .sub { font-size: 11px; margin-top: 4px; }
+  .card.score,
+  .card.high,
+  .card.combo { transform: none; }
+  .combo-bars { margin-top: 10px; gap: 4px; }
+  .combo-bars span { height: 6px; }
+  .mini-stats .row { padding: 8px 0; }
+  .mini-stats .row .v { font-size: 17px; }
+  .undo-coins span { width: 28px; height: 28px; font-size: 12px; }
+  .nt-piece > div { width: 9px; height: 9px; }
+
+  /* Tray: keep plenty of touch target. min-width/min-height are set via
+     calc(--board-cell) at the base rule so they automatically shrink with
+     the responsive board cell. */
+  .tray-wrap { padding: 14px; border-radius: var(--r-lg); }
+  .tray { gap: 10px; }
+  .tray-slot {
+    border-radius: 12px;
+  }
+  .tray-head { margin-bottom: 10px; }
+  .tray-head .label { font-size: 16px; }
+  .tray-head .hint { font-size: 12px; }
+  .tray-slot.active::before {
+    left: 8px;
+    top: -12px;
+    font-size: 10px;
+    padding: 2px 8px;
+  }
+  .slot-num { font-size: 12px; top: 6px; right: 8px; }
+
+  /* Prevent text selection flicker + 300ms tap delay on interactive surfaces */
+  .board-grid .cell,
+  .tray-slot,
+  .icon-btn,
+  .btn,
+  .nav-toggle,
+  .mode-pill { touch-action: manipulation; }
+  .board-grid,
+  .tray { user-select: none; -webkit-user-select: none; }
+
+  /* Score popup scales down */
+  .score-popup { padding: 10px 16px; }
+  .score-popup .plus { font-size: 28px; }
+  .score-popup .mult { font-size: 14px; }
+
+  /* Game over card fills more of the screen */
+  .gameover-card { padding: 28px 22px; }
+  .go-score .num { font-size: 52px; }
+  .go-stats { gap: 10px; }
+  .go-cta .btn { flex: 1 1 40%; justify-content: center; }
+
+  /* Toast */
+  .toast {
+    top: max(16px, env(safe-area-inset-top));
+    left: 12px;
+    right: 12px;
+    transform: rotate(-1.2deg);
+    padding: 12px 14px;
+  }
+  .toast-name { font-size: 18px; }
+  .toast-desc { font-size: 12px; }
+
+  /* Help overlay */
+  .help-card { padding: 24px 22px; }
+
+  /* Meta pages */
+  .meta-stage { padding: 8px 20px 48px; padding-bottom: max(48px, env(safe-area-inset-bottom)); }
+  .meta-section { padding: 18px 16px; }
+}
+
+/* Small phones */
+@media (max-width: 380px) {
+  .hero h1 { font-size: clamp(48px, 15vw, 60px); }
+  .meta-card .big { font-size: 26px; }
+  .mode-card h3 { font-size: 48px; }
+  .tray { gap: 8px; }
+  :root {
+    --board-cell: 11.5vw;
+    --board-gap: 3px;
+  }
+  .card { padding: 12px 10px; }
+  .card .big { font-size: 22px; }
+  .card.combo .big { font-size: 24px; }
 }
 
 /* ---------- Illegal ghost & clearing ---------- */
@@ -1379,13 +1697,17 @@ button {
   border: 2px dashed var(--tomato);
 }
 
-.board-grid .cell.clearing {
-  animation: clear-burst 380ms ease-out forwards;
+/* Clear-pop sequence is owned by framer-motion in GameBoard.tsx. The
+   .clearing-overlay grid sits exactly on top of the main board-grid and
+   hosts one motion.div per cleared tile. */
+.board .clearing-overlay {
+  position: absolute;
+  inset: 14px; /* matches .board padding; keeps cells aligned 1:1 */
+  pointer-events: none;
+  z-index: 2;
 }
-@keyframes clear-burst {
-  0% { transform: scale(1); opacity: 1; }
-  30% { transform: scale(1.15); filter: brightness(1.25); }
-  100% { transform: scale(0.5); opacity: 0; }
+@media (max-width: 680px) {
+  .board .clearing-overlay { inset: 10px; }
 }
 
 /* ---------- Tray wobble (invalid drop) ---------- */
@@ -1400,15 +1722,19 @@ button {
   100% { transform: rotate(0); }
 }
 
-/* ---------- Drag ghost ---------- */
+/* ---------- Drag ghost ----------
+   The ghost follows the cursor every frame, so keep the paint/composite
+   work here to a bare minimum:
+   - No `filter: drop-shadow(...)` — it re-rasterises the entire subtree on
+     every position change AND creates a second, offset shadow on top of
+     each tile's own `box-shadow`, which reads as a "phantom tile" next to
+     empty cells in non-rectangular pieces.
+   - Per-tile `box-shadow` from `.tp-cell` is the only drop shadow we need.
+   - `translate` is the transform we animate, so hint that to the
+     compositor. */
 .drag-ghost {
   opacity: 0.92;
-  filter: drop-shadow(3px 3px 0 var(--ink));
-  will-change: top, left;
-}
-.drag-ghost .tp-cell.sz-board {
-  border-width: 2px;
-  box-shadow: 2px 2px 0 0 var(--ink);
+  will-change: transform;
 }
 
 /* ---------- Selected tray slot (tap-to-select) ---------- */
