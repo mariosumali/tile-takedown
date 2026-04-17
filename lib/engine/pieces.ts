@@ -54,7 +54,10 @@ export const PIECE_COLORS: ReadonlyArray<PieceColor> = [
   'olive',
   'sky',
   'plum',
-  'cream',
+  // 'cream' is intentionally omitted from the rotation — its fill sits
+  // too close to the paper-tone board background to read clearly, even
+  // with the ink border. It's still a valid `PieceColor` so any saved
+  // runs that already contain cream tiles continue to render fine.
 ];
 
 /** All cells (row, col offsets) occupied by the piece. */

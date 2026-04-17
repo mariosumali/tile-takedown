@@ -8,7 +8,7 @@ import { readJSON, writeJSON } from '@/lib/storage/safe';
 export const DEFAULT_SETTINGS: Settings = {
   theme: 'paper',
   pieceSet: 'classic',
-  rotation: false,
+  rotation: true,
   nextTrayPreview: true,
   tapToSelect: false,
   sfxVolume: 0.6,
