@@ -20,7 +20,7 @@ import { getClearedLines } from '@/lib/engine/grid';
 import { placePiece } from '@/lib/engine/grid';
 import type { PieceShape as ShapeT, PieceColor } from '@/lib/types';
 import { comboMultiplier } from '@/lib/engine/scoring';
-import { playSfx, vibrate } from '@/lib/audio/sfx';
+import { playSfx, vibrate, setSessionMuted } from '@/lib/audio/sfx';
 
 export default function ClassicGame() {
   const hydrated = useGameStore((s) => s.hydrated);
@@ -38,6 +38,10 @@ export default function ClassicGame() {
   const rotateSelected = useGameStore((s) => s.rotateSelected);
   const placedSizes = useGameStore((s) => s.placedSizes);
   const lastClear = useGameStore((s) => s.lastClear);
+  const clearingRows = useGameStore((s) => s.clearingRows);
+  const clearingCols = useGameStore((s) => s.clearingCols);
+  const clearingBoard = useGameStore((s) => s.clearingBoard);
+  const commitClear = useGameStore((s) => s.commitClear);
 
   const settingsHydrated = useSettingsStore((s) => s.hydrated);
   const settingsHydrate = useSettingsStore((s) => s.hydrate);
@@ -51,7 +55,15 @@ export default function ClassicGame() {
   const statsHydrate = useStatsStore((s) => s.hydrate);
   const highScore = useStatsStore((s) => s.stats.highScore);
 
-  const [dragPos, setDragPos] = useState<{ x: number; y: number } | null>(null);
+  // Drag position lives in a ref + rAF-driven DOM write instead of React
+  // state. Pointer events fire 120–240Hz on many devices and re-rendering
+  // this component on every event kills drag performance. `isDragging`
+  // gates the ghost's mount; its position is written directly to the
+  // element's `transform` via `ghostElRef` below.
+  const [isDragging, setIsDragging] = useState(false);
+  const dragPosRef = useRef<{ x: number; y: number }>({ x: 0, y: 0 });
+  const ghostElRef = useRef<HTMLDivElement | null>(null);
+  const ghostRafRef = useRef<number | null>(null);
   const [hoveredAnchor, setHoveredAnchor] = useState<{ row: number; col: number } | null>(null);
   // Which cell of the *piece shape* the user grabbed. Used to keep that cell
   // under the pointer so placement lines up with where the cursor actually is.
@@ -63,18 +75,45 @@ export default function ClassicGame() {
   const [cellDim, setCellDim] = useState<{ cell: number; gap: number }>({ cell: 60, gap: 5 });
   const [muted, setMuted] = useState(false);
   const [helpOpen, setHelpOpen] = useState(false);
-  const [clearingVis, setClearingVis] = useState<{ rows: number[]; cols: number[] } | null>(null);
   const [announcement, setAnnouncement] = useState('');
 
+  // Read actual board-cell dimensions from the live CSS custom properties so the
+  // ghost math stays accurate across all breakpoints (mobile uses vw-based cells).
   useEffect(() => {
     if (typeof window === 'undefined') return;
-    const mq = window.matchMedia('(max-width: 680px)');
-    const update = () =>
-      setCellDim(mq.matches ? { cell: 36, gap: 3 } : { cell: 60, gap: 5 });
+    const parsePx = (val: string, fallback: number): number => {
+      const n = parseFloat(val);
+      return Number.isFinite(n) ? n : fallback;
+    };
+    const update = () => {
+      const styles = getComputedStyle(document.documentElement);
+      const cellRaw = styles.getPropertyValue('--board-cell').trim();
+      const gapRaw = styles.getPropertyValue('--board-gap').trim();
+      // `getComputedStyle` on a custom property normally returns the raw value
+      // (e.g. "min(11.2vw, 52px)") rather than the resolved pixel value. Prefer
+      // measuring an actual board cell when one is mounted.
+      const firstCell = document.querySelector<HTMLElement>(
+        '.board-grid [data-row][data-col]',
+      );
+      if (firstCell) {
+        const rect = firstCell.getBoundingClientRect();
+        const gapPx = parsePx(gapRaw, 5);
+        setCellDim({ cell: rect.width, gap: gapPx });
+        return;
+      }
+      setCellDim({ cell: parsePx(cellRaw, 60), gap: parsePx(gapRaw, 5) });
+    };
     update();
-    mq.addEventListener('change', update);
-    return () => mq.removeEventListener('change', update);
-  }, []);
+    window.addEventListener('resize', update);
+    window.addEventListener('orientationchange', update);
+    // Re-measure once fonts / board mount settle.
+    const t = window.setTimeout(update, 50);
+    return () => {
+      window.removeEventListener('resize', update);
+      window.removeEventListener('orientationchange', update);
+      window.clearTimeout(t);
+    };
+  }, [hydrated, run]);
 
   useEffect(() => {
     settingsHydrate();
@@ -104,6 +143,35 @@ export default function ClassicGame() {
     setGhost({ row: hoveredAnchor.row, col: hoveredAnchor.col }, activePiece.shape);
   }, [activePiece, hoveredAnchor, setGhost]);
 
+  // Writes the ghost's `transform` straight to the DOM. Called from
+  // pointermove (coalesced via rAF so we paint at most once per frame) and
+  // once on drag start so the piece appears where the user grabbed it.
+  const writeGhostTransform = useCallback(() => {
+    ghostRafRef.current = null;
+    const el = ghostElRef.current;
+    if (!el) return;
+    const { x, y } = dragPosRef.current;
+    const step = cellDim.cell + cellDim.gap;
+    const pickupCenterX = pickupOffset.c * step + cellDim.cell / 2;
+    const pickupCenterY = pickupOffset.r * step + cellDim.cell / 2;
+    const touchLift = pointerKind === 'touch' ? step : 0;
+    el.style.transform = `translate3d(${x - pickupCenterX}px, ${y - pickupCenterY - touchLift}px, 0)`;
+  }, [cellDim, pickupOffset, pointerKind]);
+
+  const scheduleGhostUpdate = useCallback(() => {
+    if (ghostRafRef.current !== null) return;
+    ghostRafRef.current = requestAnimationFrame(writeGhostTransform);
+  }, [writeGhostTransform]);
+
+  // Re-sync the ghost whenever the inputs to `writeGhostTransform` change
+  // mid-drag (e.g. rotate-selected alters pickupOffset, or the viewport is
+  // resized and cellDim changes). This costs one rAF per change, not per
+  // pointer event.
+  useEffect(() => {
+    if (!isDragging) return;
+    scheduleGhostUpdate();
+  }, [isDragging, scheduleGhostUpdate]);
+
   // Drag: pointer tracking on window. We use elementFromPoint on every move so
   // the ghost follows the cursor precisely instead of relying on per-cell
   // pointerenter (which can miss during fast motion).
@@ -114,17 +182,17 @@ export default function ClassicGame() {
       return target?.closest('[data-row][data-col]') as HTMLElement | null;
     };
     const onMove = (e: PointerEvent) => {
-      setDragPos({ x: e.clientX, y: e.clientY });
+      dragPosRef.current = { x: e.clientX, y: e.clientY };
+      scheduleGhostUpdate();
       const cell = findCellAt(e.clientX, e.clientY);
       if (cell) {
-        const row = Number(cell.dataset.row);
-        const col = Number(cell.dataset.col);
-        setHoveredAnchor({
-          row: row - pickupOffset.r,
-          col: col - pickupOffset.c,
-        });
+        const row = Number(cell.dataset.row) - pickupOffset.r;
+        const col = Number(cell.dataset.col) - pickupOffset.c;
+        setHoveredAnchor((prev) =>
+          prev && prev.row === row && prev.col === col ? prev : { row, col },
+        );
       } else {
-        setHoveredAnchor(null);
+        setHoveredAnchor((prev) => (prev === null ? prev : null));
       }
     };
     const onUp = (e: PointerEvent) => {
@@ -140,7 +208,7 @@ export default function ClassicGame() {
           triggerWobble();
         }
       }
-      setDragPos(null);
+      setIsDragging(false);
       setHoveredAnchor(null);
       setPickupOffset({ r: 0, c: 0 });
       if (!tapToSelect) selectTray(null);
@@ -152,8 +220,12 @@ export default function ClassicGame() {
       window.removeEventListener('pointermove', onMove);
       window.removeEventListener('pointerup', onUp);
       window.removeEventListener('pointercancel', onUp);
+      if (ghostRafRef.current !== null) {
+        cancelAnimationFrame(ghostRafRef.current);
+        ghostRafRef.current = null;
+      }
     };
-  }, [selectedTrayIndex, tryPlace, selectTray, run, muted, tapToSelect, pickupOffset, sfxVolume]);
+  }, [selectedTrayIndex, tryPlace, selectTray, run, muted, tapToSelect, pickupOffset, sfxVolume, scheduleGhostUpdate]);
 
   const trayWrapRef = useRef<HTMLDivElement>(null);
   const [wobbleKey, setWobbleKey] = useState(0);
@@ -188,11 +260,15 @@ export default function ClassicGame() {
       setPointerKind(
         (e.pointerType as 'mouse' | 'touch' | 'pen') || 'mouse',
       );
-      setDragPos({ x: e.clientX, y: e.clientY });
+      dragPosRef.current = { x: e.clientX, y: e.clientY };
+      setIsDragging(true);
+      // Paint the ghost at the pickup point on the next frame so it doesn't
+      // flash at (0,0) before the first pointermove arrives.
+      scheduleGhostUpdate();
       selectTray(i);
       playSfx('pickup', !muted, sfxVolume);
     },
-    [selectTray, run, muted, sfxVolume],
+    [selectTray, run, muted, sfxVolume, scheduleGhostUpdate],
   );
 
   // Cell interactions during drag. The global pointer-move handler is the
@@ -222,7 +298,7 @@ export default function ClassicGame() {
         triggerWobble();
       }
       setHoveredAnchor(null);
-      setDragPos(null);
+      setIsDragging(false);
       setPickupOffset({ r: 0, c: 0 });
       if (!tapToSelect) selectTray(null);
     },
@@ -243,29 +319,25 @@ export default function ClassicGame() {
         triggerWobble();
       }
       setHoveredAnchor(null);
-      setDragPos(null);
+      setIsDragging(false);
       setPickupOffset({ r: 0, c: 0 });
       selectTray(null);
     },
     [tapToSelect, selectedTrayIndex, run, tryPlace, muted, selectTray, pickupOffset, sfxVolume],
   );
 
-  // Clearing animation + audio: when lastClear changes
   useEffect(() => {
-    if (!lastClear) {
-      setClearingVis(null);
-      return;
-    }
-    setClearingVis({ rows: lastClear.rows, cols: lastClear.cols });
+    setSessionMuted(muted);
+  }, [muted]);
+
+  // Haptics + SR announcement on clears. The audible signature and the
+  // visual pop are driven by the store + GameBoard respectively.
+  useEffect(() => {
+    if (!lastClear) return;
     const total = lastClear.rows.length + lastClear.cols.length;
-    const ev =
-      total >= 4 ? 'clear-4' : total === 3 ? 'clear-3' : total === 2 ? 'clear-2' : 'clear-1';
-    playSfx(ev as any, !muted, sfxVolume);
     vibrate(total >= 4 ? [24, 40, 24] : total === 3 ? [22, 30] : 18, hapticsOn);
     setAnnouncement(`Cleared ${total} line${total > 1 ? 's' : ''}`);
-    const t = setTimeout(() => setClearingVis(null), 380);
-    return () => clearTimeout(t);
-  }, [lastClear, muted, sfxVolume, hapticsOn]);
+  }, [lastClear, hapticsOn]);
 
   useEffect(() => {
     if (run?.gameOver) {
@@ -423,19 +495,30 @@ export default function ClassicGame() {
         <div className="board-wrap" ref={trayWrapRef}>
           <GameBoard
             board={run.board}
-            ghostShape={activePiece?.shape ?? null}
-            ghostAnchor={ghost ? { row: ghost.row, col: ghost.col } : null}
-            ghostColor={activePiece?.color as PieceColor | null}
-            ghostLegal={ghost?.legal ?? true}
+            // Hover ghost + preclear preview temporarily disabled — the user
+            // wants pieces to just drop into place with no on-board preview.
+            // The floating drag-ghost that follows the cursor (rendered below)
+            // stays, so you still see what you're carrying.
+            // ghostShape={activePiece?.shape ?? null}
+            // ghostAnchor={ghost ? { row: ghost.row, col: ghost.col } : null}
+            // ghostColor={activePiece?.color as PieceColor | null}
+            // ghostLegal={ghost?.legal ?? true}
+            // preclearRows={preclear.rows}
+            // preclearCols={preclear.cols}
             scorePopup={
               scorePopup && scorePopup.amount > 0
-                ? { amount: scorePopup.amount, mult: scorePopup.mult }
+                ? {
+                    id: scorePopup.id,
+                    amount: scorePopup.amount,
+                    mult: scorePopup.mult,
+                    combo: run.combo,
+                  }
                 : null
             }
-            preclearRows={preclear.rows}
-            preclearCols={preclear.cols}
-            clearingRows={clearingVis?.rows}
-            clearingCols={clearingVis?.cols}
+            clearingRows={clearingRows}
+            clearingCols={clearingCols}
+            clearingBoard={clearingBoard}
+            onClearComplete={commitClear}
             chromeLive={chromeLive}
             density={density}
             onCellDown={onCellDown}
@@ -469,29 +552,27 @@ export default function ClassicGame() {
       </div>
 
       {/* Floating drag ghost that follows the cursor. Rendered at the same
-          size as the real board cells and positioned so the cell the user
-          grabbed stays under the pointer. On touch, lifted a cell+gap up so
-          the finger doesn't cover the piece. */}
-      {dragPos && activePiece && (() => {
-        const step = cellDim.cell + cellDim.gap;
-        const pickupCenterX = pickupOffset.c * step + cellDim.cell / 2;
-        const pickupCenterY = pickupOffset.r * step + cellDim.cell / 2;
-        const touchLift = pointerKind === 'touch' ? step : 0;
-        return (
-          <div
-            className="drag-ghost"
-            style={{
-              position: 'fixed',
-              top: dragPos.y - pickupCenterY - touchLift,
-              left: dragPos.x - pickupCenterX,
-              pointerEvents: 'none',
-              zIndex: 50,
-            }}
-          >
-            <PieceShape shape={activePiece.shape} color={activePiece.color} size="board" />
-          </div>
-        );
-      })()}
+          size as the real board cells. Its position is written directly to
+          the element's `transform` in `writeGhostTransform` — NOT via React
+          state — so pointer events at 120–240Hz don't trigger full
+          component re-renders. The cell the user grabbed stays under the
+          pointer; on touch, the piece is lifted one cell+gap up so the
+          finger doesn't cover it. */}
+      {isDragging && activePiece && (
+        <div
+          ref={ghostElRef}
+          className="drag-ghost"
+          style={{
+            position: 'fixed',
+            top: 0,
+            left: 0,
+            pointerEvents: 'none',
+            zIndex: 50,
+          }}
+        >
+          <PieceShape shape={activePiece.shape} color={activePiece.color} size="board" />
+        </div>
+      )}
 
       {run.gameOver && (
         <GameOverCard

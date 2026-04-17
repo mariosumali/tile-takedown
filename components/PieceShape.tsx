@@ -10,9 +10,10 @@ type Props = {
 
 const SIZE_DIMS: Record<Size, { cell: string; gap: string }> = {
   mini: { cell: '14px', gap: '3px' },
-  tray: { cell: '26px', gap: '3px' },
-  // Board size reads CSS vars so it tracks the real board cell size
-  // responsively (see globals.css `.piece-shape.sz-board`).
+  // Tray + board cells read CSS vars so they track viewport-responsive sizing
+  // set in globals.css. Tray now intentionally matches the board so pieces
+  // keep their scale when you pick them up — no size jump on pickup.
+  tray: { cell: 'var(--tray-cell)', gap: 'var(--board-gap)' },
   board: { cell: 'var(--board-cell)', gap: 'var(--board-gap)' },
 };
 
