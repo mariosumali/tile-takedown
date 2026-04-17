@@ -10,6 +10,10 @@ const MUSTARD = '#e9b949';
 const CREAM = '#e8ddb5';
 
 export default function AppleIcon() {
+  const tile = 128;
+  const inner = tile * 0.26;
+  const cream = tile * 0.34;
+
   return new ImageResponse(
     (
       <div
@@ -26,8 +30,8 @@ export default function AppleIcon() {
           style={{
             display: 'flex',
             position: 'relative',
-            width: 128,
-            height: 128,
+            width: tile,
+            height: tile,
             transform: 'rotate(-6deg)',
           }}
         >
@@ -35,21 +39,24 @@ export default function AppleIcon() {
             style={{
               display: 'flex',
               position: 'absolute',
-              inset: 0,
+              top: 0,
+              left: 0,
+              width: tile,
+              height: tile,
               background: TOMATO,
-              border: `6px solid ${INK}`,
+              border: `5px solid ${INK}`,
               borderRadius: 28,
-              boxShadow: `7px 7px 0 0 ${INK}`,
+              boxShadow: `6px 6px 0 0 ${INK}`,
             }}
           />
           <div
             style={{
               display: 'flex',
               position: 'absolute',
-              top: '22%',
-              left: '22%',
-              width: '24%',
-              height: '24%',
+              top: tile * 0.22,
+              left: tile * 0.22,
+              width: inner,
+              height: inner,
               background: MUSTARD,
               border: `4px solid ${INK}`,
               borderRadius: 6,
@@ -59,10 +66,10 @@ export default function AppleIcon() {
             style={{
               display: 'flex',
               position: 'absolute',
-              right: '16%',
-              bottom: '16%',
-              width: '32%',
-              height: '32%',
+              top: tile * 0.5,
+              left: tile * 0.5,
+              width: cream,
+              height: cream,
               background: CREAM,
               border: `4px solid ${INK}`,
               borderRadius: 6,
