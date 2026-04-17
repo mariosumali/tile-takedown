@@ -1,4 +1,4 @@
-import type { Metadata } from 'next';
+import type { Metadata, Viewport } from 'next';
 import { Caprasimo, Fraunces } from 'next/font/google';
 import './globals.css';
 
@@ -20,6 +20,24 @@ export const metadata: Metadata = {
   title: 'Tile Takedown',
   description:
     'A cozy browser puzzle. Place pieces, clear rows, watch the combo stack.',
+  appleWebApp: {
+    capable: true,
+    statusBarStyle: 'default',
+    title: 'Tile Takedown',
+  },
+  formatDetection: {
+    telephone: false,
+  },
+};
+
+export const viewport: Viewport = {
+  width: 'device-width',
+  initialScale: 1,
+  viewportFit: 'cover',
+  themeColor: [
+    { media: '(prefers-color-scheme: light)', color: '#f4ecd8' },
+    { media: '(prefers-color-scheme: dark)', color: '#1e1813' },
+  ],
 };
 
 export default function RootLayout({
