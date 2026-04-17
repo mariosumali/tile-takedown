@@ -73,6 +73,7 @@ html[data-theme='high_contrast'] {
 }
 html {
   transition: background-color 320ms ease-out, color 320ms ease-out;
+  overflow-x: clip;
 }
 body {
   background: var(--paper);
@@ -83,7 +84,7 @@ body {
   -webkit-font-smoothing: antialiased;
   min-height: 100vh;
   position: relative;
-  overflow-x: hidden;
+  overflow-x: clip;
   transition: background-color 320ms ease-out;
   -webkit-tap-highlight-color: transparent;
   /* Disable iOS double-tap zoom on controls, without blocking pinch */
@@ -247,7 +248,7 @@ button {
   color: var(--paper);
 }
 
-/* ---------- Brand mark ---------- */
+/* ---------- Brand mark (favicon: app/icon.svg mirrors this) ---------- */
 .brand-mark {
   background: var(--tomato);
   border: 2px solid var(--ink);
@@ -1011,6 +1012,11 @@ button {
   align-items: start;
   position: relative;
   z-index: 2;
+  /* Suppress the stray text-selection blink when a drag starts on top of
+     a label like "Your tray" or the score cards. None of the stage chrome
+     is meant to be selectable. */
+  user-select: none;
+  -webkit-user-select: none;
 }
 .left-stack,
 .right-stack {
@@ -1219,11 +1225,13 @@ button {
   justify-content: space-between;
   align-items: stretch;
   gap: 14px;
-  /* Pieces now render at board scale, so the tray itself needs room to grow
-     past the board's own width. Any overflow scrolls instead of clipping. */
-  overflow-x: auto;
-  overflow-y: visible;
-  scrollbar-width: thin;
+  /* Keep overflow visible on both axes — the selected / active slot states
+     use a small negative `transform` + a big `box-shadow` that need to paint
+     outside the tray's content box. Setting overflow on either axis would
+     clip them (per spec, one non-`visible` overflow forces the other to
+     `auto`/`clip`, so there's no way to scroll X while keeping Y visible
+     at the same level). */
+  overflow: visible;
 }
 .tray-slot {
   flex: 1 1 0;
@@ -1580,12 +1588,15 @@ button {
     gap: 14px;
   }
 
-  /* Game page — responsive board cells. `--tray-cell` tracks `--board-cell`
-     via the root declaration, so overriding the board alone keeps the tray
-     pieces identical in scale. */
+  /* Game page — responsive board cells sized to *guarantee fit* inside the
+     viewport. Math: viewport − 24 stage padding − 20 board padding − 4 border
+     − 28 gap (7 × 4) = 100vw − 76px available for 8 cells. We also decouple
+     `--tray-cell` from the board here so tray pieces stay a sensible size
+     and tray slots don't multiply the board overflow. */
   :root {
-    --board-cell: min(11.2vw, 52px);
+    --board-cell: min(calc((100vw - 76px) / 8), 52px);
     --board-gap: 4px;
+    --tray-cell: 20px;
   }
   .board { padding: 10px; }
   .board-chrome { padding: 0 2px; }
@@ -1616,13 +1627,15 @@ button {
   .undo-coins span { width: 28px; height: 28px; font-size: 12px; }
   .nt-piece > div { width: 9px; height: 9px; }
 
-  /* Tray: keep plenty of touch target. min-width/min-height are set via
-     calc(--board-cell) at the base rule so they automatically shrink with
-     the responsive board cell. */
-  .tray-wrap { padding: 14px; border-radius: var(--r-lg); }
-  .tray { gap: 10px; }
+  /* Tray: keep plenty of touch target. On mobile we size the slot min from
+     `--tray-cell` (decoupled from the board above) so three slots + gaps +
+     tray padding stay inside the viewport. */
+  .tray-wrap { padding: 14px 10px; border-radius: var(--r-lg); }
+  .tray { gap: 8px; }
   .tray-slot {
     border-radius: 12px;
+    min-width: calc(var(--tray-cell) * 4 + 20px);
+    min-height: calc(var(--tray-cell) * 4 + 20px);
   }
   .tray-head { margin-bottom: 10px; }
   .tray-head .label { font-size: 16px; }
@@ -1680,14 +1693,23 @@ button {
   .hero h1 { font-size: clamp(48px, 15vw, 60px); }
   .meta-card .big { font-size: 26px; }
   .mode-card h3 { font-size: 48px; }
-  .tray { gap: 8px; }
+  .tray { gap: 6px; }
   :root {
-    --board-cell: 11.5vw;
+    --board-cell: calc((100vw - 64px) / 8);
     --board-gap: 3px;
+    --tray-cell: 18px;
+  }
+  .board { padding: 8px; }
+  .tray-wrap { padding: 12px 8px; }
+  .tray-slot {
+    min-width: calc(var(--tray-cell) * 4 + 16px);
+    min-height: calc(var(--tray-cell) * 4 + 16px);
   }
   .card { padding: 12px 10px; }
   .card .big { font-size: 22px; }
-  .card.combo .big { font-size: 24px; }
+  .card.combo .big { font-size: 22px; }
+  .left-stack,
+  .right-stack { gap: 8px; }
 }
 
 /* ---------- Illegal ghost & clearing ---------- */
