@@ -642,7 +642,9 @@ button {
 /* ---------- Modes ---------- */
 .modes {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(360px, 1fr));
+  /* At most 2 cards per row so Gimmicks is never truncated on wide screens.
+     The mobile breakpoint below collapses this to a single column. */
+  grid-template-columns: repeat(2, minmax(0, 1fr));
   gap: 28px;
 }
 .mode-card {
@@ -1640,7 +1642,7 @@ button {
   .controls-grid {
     grid-template-columns: 1fr;
   }
-  .modes { gap: 18px; }
+  .modes { gap: 18px; grid-template-columns: 1fr; }
   .mode-card { padding: 24px; }
   .mode-card h3 { font-size: 60px; }
   .mode-card p { font-size: 16px; margin-bottom: 20px; }
