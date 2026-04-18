@@ -1,12 +1,29 @@
 'use client';
 
 import { motion } from 'framer-motion';
-import type { BoardState, PieceShape, PieceColor } from '@/lib/types';
+import type {
+  BoardState,
+  Obstacle,
+  PieceShape,
+  PieceColor,
+} from '@/lib/types';
 import { pieceCells } from '@/lib/engine/pieces';
 import ScorePopup from './ScorePopup';
 
+type ObstacleMap = Readonly<Record<string, Obstacle>>;
+
 type Props = {
   board: BoardState;
+  /**
+   * Optional playable-cell mask for non-rectangular boards (Levels mode).
+   * `mask[r][c] === false` renders as a `.cell.void`, ignores pointer events,
+   * and skips preclear / ghost / clear animations.
+   */
+  mask?: ReadonlyArray<ReadonlyArray<boolean>>;
+  /**
+   * Optional obstacle overlay (Gimmicks mode). Keys are "r-c" strings.
+   */
+  obstacles?: ObstacleMap;
   preclearRow?: number | null;
   preclearRows?: ReadonlyArray<number>;
   preclearCols?: ReadonlyArray<number>;
@@ -44,12 +61,6 @@ const POP_TIMES = [0, 120 / 520, 300 / 520, 1] as const;
 const STAGGER_MS = 28;
 const FADEIN_DURATION = 0.16;
 
-/**
- * Each tile within a cleared line staggers by `STAGGER_MS` based on its
- * position in the line (left→right for row clears, top→bottom for col clears).
- * Intersection cells take the smaller of the two delays so a quad-clear
- * centerpiece doesn't lag behind both its arms.
- */
 function popDelaySec(
   r: number,
   c: number,
@@ -63,8 +74,19 @@ function popDelaySec(
   return Math.min(rowDelay, colDelay) / 1000;
 }
 
+function isPlayable(
+  mask: Props['mask'] | undefined,
+  r: number,
+  c: number,
+): boolean {
+  if (!mask) return true;
+  return mask[r]?.[c] !== false;
+}
+
 export default function GameBoard({
   board,
+  mask,
+  obstacles,
   preclearRow = null,
   preclearRows = [],
   preclearCols = [],
@@ -84,24 +106,34 @@ export default function GameBoard({
   clearingBoard = null,
   onClearComplete,
 }: Props) {
+  const rowCount = board.length;
+  const colCount = board[0]?.length ?? 0;
+
   const ghostSet = new Set<string>();
   if (ghostShape && ghostAnchor) {
     for (const [dr, dc] of pieceCells(ghostShape)) {
       const r = ghostAnchor.row + dr;
       const c = ghostAnchor.col + dc;
-      if (r >= 0 && c >= 0 && r < 8 && c < 8) ghostSet.add(`${r}-${c}`);
+      if (
+        r >= 0 &&
+        c >= 0 &&
+        r < rowCount &&
+        c < colCount &&
+        isPlayable(mask, r, c)
+      ) {
+        ghostSet.add(`${r}-${c}`);
+      }
     }
   }
 
   const isClearing = clearingRows.length + clearingCols.length > 0;
 
-  // Flat list of clearing cells, needed to render the overlay and to know
-  // which grid cell owns the "last" animation-complete callback.
   const clearingCells: Array<{ r: number; c: number; color: PieceColor; delay: number }> = [];
   let maxDelay = 0;
   if (isClearing && clearingBoard) {
     for (const r of clearingRows) {
-      for (let c = 0; c < 8; c++) {
+      for (let c = 0; c < colCount; c++) {
+        if (!isPlayable(mask, r, c)) continue;
         const color = clearingBoard[r]?.[c];
         if (!color) continue;
         const delay = popDelaySec(r, c, clearingRows, clearingCols);
@@ -110,8 +142,9 @@ export default function GameBoard({
       }
     }
     for (const c of clearingCols) {
-      for (let r = 0; r < 8; r++) {
-        if (clearingRows.includes(r)) continue; // already collected above
+      for (let r = 0; r < rowCount; r++) {
+        if (clearingRows.includes(r)) continue;
+        if (!isPlayable(mask, r, c)) continue;
         const color = clearingBoard[r]?.[c];
         if (!color) continue;
         const delay = popDelaySec(r, c, clearingRows, clearingCols);
@@ -121,17 +154,19 @@ export default function GameBoard({
     }
   }
 
-  // Midpoint of the first cleared line — drives the score popup anchor.
-  // For multi-clears we take the first row (or first col) as a pragmatic
-  // focus point; the popup is a one-shot accent, not a heat-map.
   let popupPos = { xPct: 50, yPct: 50 };
   if (scorePopup) {
     if (clearingRows.length > 0) {
-      popupPos = { xPct: 50, yPct: ((clearingRows[0] + 0.5) / 8) * 100 };
+      popupPos = { xPct: 50, yPct: ((clearingRows[0] + 0.5) / rowCount) * 100 };
     } else if (clearingCols.length > 0) {
-      popupPos = { xPct: ((clearingCols[0] + 0.5) / 8) * 100, yPct: 50 };
+      popupPos = { xPct: ((clearingCols[0] + 0.5) / colCount) * 100, yPct: 50 };
     }
   }
+
+  const gridStyle = {
+    ['--board-rows' as string]: String(rowCount),
+    ['--board-cols' as string]: String(colCount),
+  } as React.CSSProperties;
 
   return (
     <>
@@ -145,31 +180,44 @@ export default function GameBoard({
       </div>
 
       <div className="board" onPointerLeave={onBoardLeave}>
-        <div className="board-grid">
+        <div className="board-grid" style={gridStyle}>
           {board.flatMap((row, r) =>
             row.map((v, c) => {
               const key = `${r}-${c}`;
+              const playable = isPlayable(mask, r, c);
+              const obstacle = obstacles?.[`${r}:${c}`];
               const classes = ['cell'];
-              if (v) classes.push('filled', `fill-${v}`);
+
+              if (!playable) classes.push('void');
+              if (v && playable) classes.push('filled', `fill-${v}`);
+
+              if (obstacle && playable) {
+                if (obstacle.kind === 'locked') classes.push('filled', 'locked');
+                else if (obstacle.kind === 'frozen') classes.push('filled', 'frozen');
+                else if (obstacle.kind === 'bomb') {
+                  classes.push('filled', 'bomb');
+                  if (obstacle.turnsLeft <= 2) classes.push('bomb-hot');
+                }
+              }
+
               const inClearingRow = clearingRows.includes(r);
               const inClearingCol = clearingCols.includes(c);
-              const isClearingCell = inClearingRow || inClearingCol;
-              // Preclear pulse is suppressed once the pop animation takes over
-              // to avoid the two transforms fighting.
+              const isClearingCell = (inClearingRow || inClearingCol) && playable;
+
               const isPreclear =
+                playable &&
                 !isClearingCell &&
                 ((preclearRow !== null && r === preclearRow && v) ||
                   (preclearRows.includes(r) && v) ||
                   (preclearCols.includes(c) && v));
               if (isPreclear) classes.push('preclear');
-              if (!v && ghostSet.has(key)) {
+
+              if (!v && playable && !obstacle && ghostSet.has(key)) {
                 classes.push('filled', 'ghost');
                 if (ghostLegal) classes.push(`fill-${ghostColor || 'olive'}`);
                 else classes.push('illegal');
               }
 
-              // After the pop completes, the now-empty cell fades back in so
-              // the grid doesn't pop back abruptly.
               const justVacated = !v && isClearingCell;
               const delay = justVacated
                 ? popDelaySec(r, c, clearingRows, clearingCols) + POP_DURATION
@@ -193,27 +241,28 @@ export default function GameBoard({
                       : { duration: 0 }
                   }
                   onPointerDown={
-                    onCellDown ? (e) => onCellDown(r, c, e) : undefined
+                    playable && onCellDown ? (e) => onCellDown(r, c, e) : undefined
                   }
                   onPointerEnter={
-                    onCellEnter ? (e) => onCellEnter(r, c, e) : undefined
+                    playable && onCellEnter ? (e) => onCellEnter(r, c, e) : undefined
                   }
                   onPointerUp={
-                    onCellUp ? (e) => onCellUp(r, c, e) : undefined
+                    playable && onCellUp ? (e) => onCellUp(r, c, e) : undefined
                   }
-                />
+                >
+                  {obstacle?.kind === 'bomb' && playable && (
+                    <span>{obstacle.turnsLeft}</span>
+                  )}
+                </motion.div>
               );
             }),
           )}
         </div>
 
         {isClearing && clearingCells.length > 0 && (
-          <div className="board-grid clearing-overlay" aria-hidden="true">
+          <div className="board-grid clearing-overlay" style={gridStyle} aria-hidden="true">
             {clearingCells.map(({ r, c, color, delay }, i) => {
               const sign = (r + c) % 2 === 0 ? 1 : -1;
-              // Fire the commit callback only once — on the cell whose delay
-              // is the largest in the batch. Using `delay === maxDelay`
-              // instead of array-last guards against row/col ordering quirks.
               const isLast = delay === maxDelay && onClearComplete;
               return (
                 <motion.div

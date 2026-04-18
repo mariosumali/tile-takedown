@@ -1146,8 +1146,10 @@ button {
 }
 .board-grid {
   display: grid;
-  grid-template-columns: repeat(8, var(--board-cell));
-  grid-template-rows: repeat(8, var(--board-cell));
+  /* --board-rows / --board-cols are set inline by GameBoard per level.
+     Defaults keep Classic + Sandbox visually identical. */
+  grid-template-columns: repeat(var(--board-cols, 8), var(--board-cell));
+  grid-template-rows: repeat(var(--board-rows, 8), var(--board-cell));
   gap: var(--board-gap);
 }
 .board-grid .cell {
@@ -1179,6 +1181,20 @@ button {
 .board-grid .cell.ghost.fill-sky { background: var(--sky); opacity: 0.5; }
 .board-grid .cell.ghost.fill-plum { background: var(--plum); opacity: 0.5; }
 .board-grid .cell.ghost.fill-cream { background: var(--cream-tile); opacity: 0.55; }
+
+/* Void cells — unplayable squares inside a level's mask. */
+.board-grid .cell.void {
+  background: transparent;
+  border: 1.5px dotted rgba(28, 23, 20, 0.18);
+  pointer-events: none;
+  opacity: 0.55;
+}
+.board-grid .cell.void.filled,
+.board-grid .cell.void.ghost { /* defensive: should never happen */
+  background: transparent;
+  border-color: rgba(28, 23, 20, 0.18);
+  box-shadow: none;
+}
 
 /* ---------- Score popup ----------
    Layout only; motion is owned by framer-motion in ScorePopup.tsx so the
