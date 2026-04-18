@@ -12,6 +12,10 @@ type Props = {
     e: React.PointerEvent<HTMLDivElement>,
   ) => void;
   hint?: string;
+  /** Shown on touch / narrow viewports when rotation is enabled in settings. */
+  showRotateButton?: boolean;
+  onRotate?: () => void;
+  rotateDisabled?: boolean;
 };
 
 export default function Tray({
@@ -20,12 +24,33 @@ export default function Tray({
   selectedIndex = null,
   onPointerDown,
   hint = 'drag a piece onto the board',
+  showRotateButton = false,
+  onRotate,
+  rotateDisabled = false,
 }: Props) {
   return (
     <div className="tray-wrap">
       <div className="tray-head">
         <span className="label">Your tray</span>
-        <span className="hint">{hint}</span>
+        <div className="tray-head-end">
+          {showRotateButton && onRotate ? (
+            <button
+              type="button"
+              className="icon-btn tray-rotate-btn"
+              aria-label="Rotate selected piece"
+              disabled={rotateDisabled}
+              onPointerDown={(e) => e.stopPropagation()}
+              onClick={(e) => {
+                e.preventDefault();
+                e.stopPropagation();
+                onRotate();
+              }}
+            >
+              ↻
+            </button>
+          ) : null}
+          <span className="hint">{hint}</span>
+        </div>
       </div>
       <div className="tray">
         {pieces.map((piece, i) => {

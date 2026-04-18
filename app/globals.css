@@ -1000,6 +1000,16 @@ button {
   transform: translate(2px, 2px);
   box-shadow: 0 0 0 0 var(--ink);
 }
+.icon-btn:disabled {
+  opacity: 0.38;
+  cursor: not-allowed;
+  transform: none;
+  box-shadow: var(--shadow-sm);
+}
+.icon-btn:disabled:hover {
+  transform: none;
+  box-shadow: var(--shadow-sm);
+}
 
 /* ---------- Stage (game layout) ---------- */
 .stage {
@@ -1215,10 +1225,26 @@ button {
   font-family: var(--font-display), 'Caprasimo', serif;
   font-size: 18px;
 }
+.tray-head-end {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  flex-wrap: wrap;
+  gap: 10px;
+  flex: 1 1 160px;
+  min-width: 0;
+}
 .tray-head .hint {
   color: var(--ink-3);
   font-size: 13px;
   font-variation-settings: 'opsz' 14, 'wght' 500;
+  text-align: right;
+  flex: 1 1 120px;
+  min-width: 0;
+}
+.tray-rotate-btn {
+  flex-shrink: 0;
+  line-height: 1;
 }
 .tray {
   display: flex;
@@ -1298,6 +1324,8 @@ button {
   gap: 12px;
   padding: 6px 0;
   justify-content: space-between;
+  align-items: center;
+  flex-wrap: wrap;
   margin-top: 10px;
 }
 .nt-piece {
@@ -1314,6 +1342,19 @@ button {
 .nt-piece > div.empty {
   background: transparent;
   opacity: 0;
+}
+
+/* Next + undos combined (mobile sidebar — see NextTrayUndoComboCard) */
+.next-undo-combo .nu-combo-next + .nu-combo-undo {
+  margin-top: 12px;
+  padding-top: 12px;
+  border-top: 1.5px dashed rgba(28, 23, 20, 0.2);
+}
+.next-undo-combo .nu-combo-next .nt-row {
+  margin-top: 8px;
+}
+.next-undo-combo .nu-combo-undo .undo-coins {
+  margin-top: 10px;
 }
 
 /* ---------- Undo card ---------- */
@@ -1604,10 +1645,14 @@ button {
   .density-chip { font-size: 12px; }
   .density-chip strong { font-size: 15px; }
 
-  /* HUD on mobile — three cards stacked horizontally, compact */
-  .left-stack,
-  .right-stack {
+  /* HUD on mobile — three score cards in one row; sidebar stacks combined
+     next+undo card then run stats (full width each). */
+  .left-stack {
     grid-template-columns: repeat(3, 1fr);
+    gap: 10px;
+  }
+  .right-stack {
+    grid-template-columns: 1fr;
     gap: 10px;
   }
   .card {
