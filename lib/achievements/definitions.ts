@@ -36,6 +36,9 @@ export const ACHIEVEMENTS: ReadonlyArray<AchievementDef> = [
   { id: 'RESUMED', name: 'Back for more', desc: 'Resume an unfinished run.', icon: '↺' },
   { id: 'NO_UNDOS_RUN', name: 'Unflinching', desc: 'Finish a run without using undo.', icon: '=' },
   { id: 'FULL_DECK', name: 'Full deck', desc: 'Place every piece shape in one run.', icon: '♦' },
+  { id: 'FIRST_STAR', name: 'First star', desc: 'Earn your first star in Levels mode.', icon: '★' },
+  { id: 'PERFECTIONIST', name: 'Perfectionist', desc: 'Three-star a level.', icon: '★★★' },
+  { id: 'TOOLED_UP', name: 'Tooled up', desc: 'Use three powerups in a single Gimmicks run.', icon: '⚒' },
 ];
 
 export const ACHIEVEMENTS_BY_ID: Readonly<Record<string, AchievementDef>> =
