@@ -8,4 +8,7 @@ export const K = {
   achievements: `${STORAGE_PREFIX}:achievements`,
   streak: `${STORAGE_PREFIX}:streak`,
   runs: `${STORAGE_PREFIX}:runs`,
+  levelsProgress: `${STORAGE_PREFIX}:levelsProgress`,
+  activeLevel: `${STORAGE_PREFIX}:activeLevel`,
+  gimmicksRun: `${STORAGE_PREFIX}:gimmicksRun`,
 } as const;

@@ -102,3 +102,93 @@ export type Snapshot = {
 };
 
 export type AchievementState = { unlockedAt: string };
+
+/* ------------------------------------------------------------------------ */
+/* Levels mode                                                               */
+/* ------------------------------------------------------------------------ */
+
+/** Playable-cell mask for shaped boards. `false` = void. */
+export type BoardMask = ReadonlyArray<ReadonlyArray<boolean>>;
+
+export type BoardDims = {
+  rows: number;
+  cols: number;
+  mask?: BoardMask;
+};
+
+export type LevelStars = 0 | 1 | 2 | 3;
+
+export type LevelTier = 1 | 2 | 3 | 4 | 5;
+
+export type LevelDef = {
+  /** 'L001'…'L100' */
+  id: string;
+  /** 1-indexed position in the catalog. */
+  index: number;
+  tier: LevelTier;
+  name: string;
+  dims: BoardDims;
+  /** Named piece set, or custom id list. */
+  pieceSet: PieceSet | 'custom';
+  customPool?: string[]; // PieceDef ids
+  targetScore: number;
+  /** [1★, 2★, 3★] score thresholds, monotonically increasing. */
+  starThresholds: readonly [number, number, number];
+  parMoves: number;
+  intro?: string;
+};
+
+export type LevelRecord = {
+  stars: LevelStars;
+  bestScore: number;
+};
+
+export type LevelProgress = Record<string, LevelRecord>;
+
+/* ------------------------------------------------------------------------ */
+/* Gimmicks mode                                                             */
+/* ------------------------------------------------------------------------ */
+
+export type PowerUpId =
+  | 'bomb'
+  | 'row_nuke'
+  | 'col_nuke'
+  | 'color_clear'
+  | 'shuffle'
+  | 'rotate_any';
+
+export type PowerUpInventory = Partial<Record<PowerUpId, number>>;
+
+export type Obstacle =
+  | { kind: 'locked' }
+  | { kind: 'frozen'; meltsAfter: number }
+  | { kind: 'bomb'; turnsLeft: number };
+
+export type ObstacleMap = Record<string, Obstacle>;
+
+export type GimmicksRunState = {
+  id: string;
+  board: BoardState;
+  tray: (TrayPiece | null)[];
+  nextTray: TrayPiece[];
+  score: number;
+  combo: number;
+  comboPeak: number;
+  placements: number;
+  clears: ClearCounts;
+  perfectClears: number;
+  undosUsed: number;
+  startedAt: string;
+  lastAt: string;
+  gameOver: boolean;
+  bag: ReadonlyArray<Piece>;
+  // Gimmicks-specific:
+  powerups: PowerUpInventory;
+  powerMeter: number;
+  lives: number;
+  obstacles: ObstacleMap;
+  /** Random-but-deterministic seed for obstacle spawns. */
+  seed: number;
+  /** Powerups ever used in this run — for TOOLED_UP achievement. */
+  usedPowerups: PowerUpId[];
+};
