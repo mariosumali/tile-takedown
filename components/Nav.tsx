@@ -10,6 +10,8 @@ type NavItem = { label: string; href: string; id: string };
 const items: NavItem[] = [
   { id: 'home', label: 'Home', href: '/' },
   { id: 'classic', label: 'Classic', href: '/play' },
+  { id: 'levels', label: 'Levels', href: '/levels' },
+  { id: 'gimmicks', label: 'Gimmicks', href: '/gimmicks' },
   { id: 'sandbox', label: 'Sandbox', href: '/sandbox' },
   { id: 'stats', label: 'Stats', href: '/stats' },
   { id: 'settings', label: 'Settings', href: '/settings' },

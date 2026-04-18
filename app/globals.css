@@ -642,7 +642,7 @@ button {
 /* ---------- Modes ---------- */
 .modes {
   display: grid;
-  grid-template-columns: 1fr 1fr;
+  grid-template-columns: repeat(auto-fit, minmax(360px, 1fr));
   gap: 28px;
 }
 .mode-card {
@@ -666,6 +666,20 @@ button {
 }
 .mode-card.b {
   background: var(--mustard);
+}
+.mode-card.c {
+  background: var(--olive);
+  color: var(--paper);
+}
+.mode-card.c p {
+  color: #eef0dd;
+}
+.mode-card.d {
+  background: var(--plum);
+  color: var(--paper);
+}
+.mode-card.d p {
+  color: #f4e4ef;
 }
 .mc-eyebrow {
   display: inline-block;
