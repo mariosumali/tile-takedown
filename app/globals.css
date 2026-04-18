@@ -1316,26 +1316,10 @@ button {
   font-family: var(--font-display), 'Caprasimo', serif;
   font-size: 18px;
 }
-.tray-head-end {
-  display: flex;
-  align-items: center;
-  justify-content: flex-end;
-  flex-wrap: wrap;
-  gap: 10px;
-  flex: 1 1 160px;
-  min-width: 0;
-}
 .tray-head .hint {
   color: var(--ink-3);
   font-size: 13px;
   font-variation-settings: 'opsz' 14, 'wght' 500;
-  text-align: right;
-  flex: 1 1 120px;
-  min-width: 0;
-}
-.tray-rotate-btn {
-  flex-shrink: 0;
-  line-height: 1;
 }
 .tray {
   display: flex;

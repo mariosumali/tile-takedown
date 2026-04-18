@@ -15,12 +15,14 @@ import PieceShape from '../PieceShape';
 import { useGameStore } from '@/stores/useGameStore';
 import { useSettingsStore } from '@/stores/useSettingsStore';
 import { useStatsStore } from '@/stores/useStatsStore';
-import { boardDensity, canPlace, canShapeFit } from '@/lib/engine/grid';
-import { rotateShape } from '@/lib/engine/pieces';
-import { getClearedLines } from '@/lib/engine/grid';
-import { placePiece } from '@/lib/engine/grid';
+import {
+  boardDensity,
+  canPlace,
+  canShapeFit,
+  getClearedLines,
+  placePiece,
+} from '@/lib/engine/grid';
 import type { PieceShape as ShapeT, PieceColor } from '@/lib/types';
-import { comboMultiplier } from '@/lib/engine/scoring';
 import { playSfx, vibrate, setSessionMuted } from '@/lib/audio/sfx';
 
 export default function ClassicGame() {
@@ -77,8 +79,8 @@ export default function ClassicGame() {
   const [muted, setMuted] = useState(false);
   const [helpOpen, setHelpOpen] = useState(false);
   const [announcement, setAnnouncement] = useState('');
-  /** Coarse pointer or narrow viewport: show tray rotate control (no hardware keyboard). */
-  const [touchUi, setTouchUi] = useState(false);
+  /** Narrow stage: combined next-up + undo card in the sidebar. */
+  const [narrowViewport, setNarrowViewport] = useState(false);
 
   // Read actual board-cell dimensions from the live CSS custom properties so the
   // ghost math stays accurate across all breakpoints (mobile uses vw-based cells).
@@ -120,16 +122,11 @@ export default function ClassicGame() {
 
   useEffect(() => {
     if (typeof window === 'undefined') return;
-    const mqCoarse = window.matchMedia('(pointer: coarse)');
-    const mqNarrow = window.matchMedia('(max-width: 760px)');
-    const sync = () => setTouchUi(mqCoarse.matches || mqNarrow.matches);
+    const mq = window.matchMedia('(max-width: 760px)');
+    const sync = () => setNarrowViewport(mq.matches);
     sync();
-    mqCoarse.addEventListener('change', sync);
-    mqNarrow.addEventListener('change', sync);
-    return () => {
-      mqCoarse.removeEventListener('change', sync);
-      mqNarrow.removeEventListener('change', sync);
-    };
+    mq.addEventListener('change', sync);
+    return () => mq.removeEventListener('change', sync);
   }, []);
 
   useEffect(() => {
@@ -251,25 +248,25 @@ export default function ClassicGame() {
         ghostRafRef.current = null;
       }
     };
-  }, [selectedTrayIndex, tryPlace, selectTray, run, muted, tapToSelect, pickupOffset, sfxVolume, scheduleGhostUpdate, cellDim, pointerKind]);
+  }, [
+    selectedTrayIndex,
+    tryPlace,
+    selectTray,
+    run,
+    muted,
+    tapToSelect,
+    pickupOffset,
+    sfxVolume,
+    scheduleGhostUpdate,
+    cellDim,
+    pointerKind,
+  ]);
 
   const trayWrapRef = useRef<HTMLDivElement>(null);
   const [wobbleKey, setWobbleKey] = useState(0);
   function triggerWobble() {
     setWobbleKey((k) => k + 1);
   }
-
-  const handleTrayRotate = useCallback(() => {
-    if (!rotationEnabled || selectedTrayIndex === null || !run || run.gameOver) return;
-    rotateSelected();
-    const nextRun = useGameStore.getState().run;
-    const idx = useGameStore.getState().selectedTrayIndex;
-    const piece = nextRun && idx !== null ? nextRun.tray[idx] : null;
-    if (piece) {
-      setPickupOffset((prev) => nearestFilledCell(piece.shape, prev.r, prev.c));
-    }
-    vibrate(12, hapticsOn);
-  }, [rotationEnabled, selectedTrayIndex, run, rotateSelected, hapticsOn]);
 
   const handleTrayDown = useCallback(
     (i: number, e: React.PointerEvent<HTMLDivElement>) => {
@@ -407,6 +404,11 @@ export default function ClassicGame() {
         return;
       }
       if ((e.key === 'r' || e.key === 'R') && rotationEnabled) {
+        const mobileNoRotate =
+          typeof window !== 'undefined' &&
+          (window.matchMedia('(max-width: 760px)').matches ||
+            window.matchMedia('(pointer: coarse)').matches);
+        if (mobileNoRotate) return;
         e.preventDefault();
         rotateSelected();
         return;
@@ -467,6 +469,14 @@ export default function ClassicGame() {
     return cleared;
   }, [run, activePiece, ghost]);
 
+  const trayHint = useMemo(() => {
+    if (tapToSelect) {
+      return 'tap a piece, then tap the board';
+    }
+    if (!rotationEnabled) return 'drag a piece onto the board';
+    return 'drag onto the board · R to rotate';
+  }, [tapToSelect, rotationEnabled]);
+
   if (!run) {
     return null;
   }
@@ -492,16 +502,6 @@ export default function ClassicGame() {
   const comboMultStr = (1 + 0.25 * run.combo).toFixed(2);
   const comboDisplay = run.combo > 0 ? `×${Math.min(3, Number(comboMultStr)).toFixed(2)}` : '×1.00';
   const comboOn = Math.min(4, run.combo);
-
-  const trayHint = useMemo(() => {
-    if (tapToSelect) {
-      return rotationEnabled && touchUi
-        ? 'tap board to place · ↻ rotates'
-        : 'tap a piece, then tap the board';
-    }
-    if (!rotationEnabled) return 'drag a piece onto the board';
-    return touchUi ? 'drag onto the board · ↻ rotates' : 'drag onto the board · R to rotate';
-  }, [tapToSelect, rotationEnabled, touchUi]);
 
   const runDurationMs =
     new Date(run.lastAt).getTime() - new Date(run.startedAt).getTime();
@@ -597,17 +597,12 @@ export default function ClassicGame() {
               selectedIndex={!isDragging ? selectedTrayIndex : null}
               onPointerDown={handleTrayDown}
               hint={trayHint}
-              showRotateButton={rotationEnabled && touchUi}
-              onRotate={handleTrayRotate}
-              rotateDisabled={
-                selectedTrayIndex === null || run.gameOver || !run.tray[selectedTrayIndex ?? -1]
-              }
             />
           </div>
         </div>
 
         <div className="right-stack">
-          {touchUi ? (
+          {narrowViewport ? (
             <>
               <NextTrayUndoComboCard
                 nextShapes={run.nextTray.map((p) => p.shape)}
@@ -710,7 +705,7 @@ function HelpOverlay({ onClose }: { onClose: () => void }) {
           <li><kbd className="kbd">1</kbd><kbd className="kbd">2</kbd><kbd className="kbd">3</kbd> select a tray slot</li>
           <li><kbd className="kbd">↑↓←→</kbd> move the ghost placement</li>
           <li><kbd className="kbd">↵</kbd> place at ghost</li>
-          <li><kbd className="kbd">R</kbd> or tray ↻ — rotate (if enabled)</li>
+          <li><kbd className="kbd">R</kbd> rotate (if enabled; keyboard only)</li>
           <li><kbd className="kbd">Z</kbd> undo</li>
           <li><kbd className="kbd">M</kbd> mute</li>
           <li><kbd className="kbd">Esc</kbd> close / cancel</li>
