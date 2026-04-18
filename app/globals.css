@@ -1160,11 +1160,14 @@ button {
 }
 .board-grid {
   display: grid;
-  /* --board-rows / --board-cols are set inline by GameBoard per level.
-     Defaults keep Classic + Sandbox visually identical. */
+  /* --board-rows / --board-cols are always set inline by GameBoard per level.
+     Defaults here are only a safety net for SSR flashes / missing style props. */
   grid-template-columns: repeat(var(--board-cols, 8), var(--board-cell));
   grid-template-rows: repeat(var(--board-rows, 8), var(--board-cell));
   gap: var(--board-gap);
+  /* Hug the grid tightly so the .board container never extends past the cells.
+     Prevents phantom "8x8 feel" when a shorter/narrower board is rendered. */
+  width: max-content;
 }
 .board-grid .cell {
   background: var(--paper-2);
@@ -1196,12 +1199,18 @@ button {
 .board-grid .cell.ghost.fill-plum { background: var(--plum); opacity: 0.5; }
 .board-grid .cell.ghost.fill-cream { background: var(--cream-tile); opacity: 0.55; }
 
-/* Void cells — unplayable squares inside a level's mask. */
+/* Void cells — unplayable squares inside a level's mask.
+   Distinct from both filled and empty cells: no border, faint diagonal
+   hatch over the board background so the playable silhouette reads clearly. */
 .board-grid .cell.void {
-  background: transparent;
-  border: 1.5px dotted rgba(28, 23, 20, 0.18);
+  background:
+    repeating-linear-gradient(
+      135deg,
+      transparent 0 6px,
+      rgba(28, 23, 20, 0.06) 6px 7px
+    );
+  border: none;
   pointer-events: none;
-  opacity: 0.55;
 }
 .board-grid .cell.void.filled,
 .board-grid .cell.void.ghost { /* defensive: should never happen */
