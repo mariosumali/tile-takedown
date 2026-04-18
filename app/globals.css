@@ -1196,6 +1196,67 @@ button {
   box-shadow: none;
 }
 
+/* Gimmicks-mode obstacle cells. Layered on top of the base .cell look. */
+.board-grid .cell.locked {
+  background: repeating-linear-gradient(
+    45deg,
+    var(--paper-3) 0 6px,
+    var(--ink) 6px 8px
+  );
+  border: 2px solid var(--ink);
+  box-shadow: 2px 2px 0 0 var(--ink);
+  cursor: not-allowed;
+}
+.board-grid .cell.frozen {
+  background: linear-gradient(135deg, #c6e6f0 0%, #a6d4e8 100%);
+  border: 2px solid var(--ink);
+  box-shadow: 2px 2px 0 0 var(--ink);
+  position: relative;
+}
+.board-grid .cell.frozen::after {
+  content: '';
+  position: absolute;
+  inset: 4px;
+  border-radius: var(--r-sm);
+  background:
+    linear-gradient(45deg, transparent 45%, rgba(255,255,255,0.55) 45% 55%, transparent 55%),
+    linear-gradient(-45deg, transparent 45%, rgba(255,255,255,0.45) 45% 55%, transparent 55%);
+  pointer-events: none;
+}
+.board-grid .cell.bomb {
+  background: var(--tomato);
+  border: 2px solid var(--ink);
+  box-shadow: 2px 2px 0 0 var(--ink);
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--paper);
+  font-family: var(--font-display), 'Caprasimo', serif;
+  font-size: 0.62em;
+  line-height: 1;
+}
+.board-grid .cell.bomb::before {
+  content: '';
+  position: absolute;
+  inset: 18%;
+  background: var(--ink);
+  border-radius: 50%;
+  opacity: 0.85;
+}
+.board-grid .cell.bomb span {
+  position: relative;
+  z-index: 1;
+  color: var(--paper);
+}
+.board-grid .cell.bomb.bomb-hot {
+  animation: bomb-pulse 700ms ease-in-out infinite alternate;
+}
+@keyframes bomb-pulse {
+  from { transform: scale(1); filter: brightness(1); }
+  to   { transform: scale(1.04); filter: brightness(1.15); }
+}
+
 /* ---------- Score popup ----------
    Layout only; motion is owned by framer-motion in ScorePopup.tsx so the
    two systems don't fight over `transform` / `opacity`. */
