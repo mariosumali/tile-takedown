@@ -108,6 +108,8 @@ type State = {
   hydrate: () => void;
   startLevel: (levelId: string) => void;
   abandonLevel: () => void;
+  /** End the run now — resolves stars from current score and shows the card. */
+  finishLevel: () => void;
   reshuffle: () => boolean;
 
   selectTray: (i: number | null) => void;
@@ -310,6 +312,15 @@ export const useLevelsStore = create<State>((set, get) => {
       });
     },
 
+    finishLevel: () => {
+      const s = get();
+      if (!s.level || s.finishedStars !== null) return;
+      const stars = computeStars(s.score, s.level.starThresholds);
+      s.recordResult(s.level.id, s.score, stars);
+      set({ finishedStars: stars });
+      persistActive(null);
+    },
+
     reshuffle: () => {
       const s = get();
       if (!s.level || s.finishedStars !== null) return false;
@@ -414,8 +425,8 @@ export const useLevelsStore = create<State>((set, get) => {
       const undoStack = s.undoStack.concat(snap);
       while (undoStack.length > UNDO_LIMIT + 20) undoStack.shift();
 
-      // Target-reached check
       const nowPassed = s.passed || score >= level.targetScore;
+      const reached3Star = score >= level.starThresholds[2];
 
       set({
         board: afterClear,
@@ -461,15 +472,25 @@ export const useLevelsStore = create<State>((set, get) => {
         );
       }
 
-      // End-of-level condition: tray deadlock after placement.
-      if (!canAnyPieceFit(afterClear, tray, mask)) {
-        // Auto-reshuffle (one freebie) if available.
+      // End-of-level conditions.
+      // 1) Maxed out at 3★ — nothing more to play for, resolve immediately.
+      if (reached3Star) {
+        setTimeout(() => {
+          const cur = get();
+          if (cur.finishedStars !== null) return;
+          cur.recordResult(level.id, cur.score, 3);
+          set({ finishedStars: 3 });
+          persistActive(null);
+        }, cleared.totalLines > 0 ? 900 : 250);
+      } else if (!canAnyPieceFit(afterClear, tray, mask)) {
+        // 2) Tray deadlock after placement.
         const canReshuffle = !s.reshuffleUsed;
         if (canReshuffle) {
           setTimeout(() => get().reshuffle(), 500);
         } else {
           setTimeout(() => {
             const cur = get();
+            if (cur.finishedStars !== null) return;
             const stars = computeStars(cur.score, level.starThresholds);
             cur.recordResult(level.id, cur.score, stars);
             set({ finishedStars: stars });
