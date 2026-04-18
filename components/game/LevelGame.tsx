@@ -55,6 +55,7 @@ export default function LevelGame({ levelId }: Props) {
   const rotateSelected = useLevelsStore((s) => s.rotateSelected);
   const reshuffle = useLevelsStore((s) => s.reshuffle);
   const commitClear = useLevelsStore((s) => s.commitClear);
+  const finishLevel = useLevelsStore((s) => s.finishLevel);
 
   const settingsHydrated = useSettingsStore((s) => s.hydrated);
   const settingsHydrate = useSettingsStore((s) => s.hydrate);
@@ -490,13 +491,34 @@ export default function LevelGame({ levelId }: Props) {
             available={canReshuffle}
             used={reshuffleUsed}
             onUse={() => reshuffle()}
+            passed={passed}
+            stars={starsNow}
+            onFinish={finishLevel}
           />
           {nextTray.length > 0 && (
-            <div className="next-tray-card">
+            <div className="card next-tray">
               <div className="eyebrow">next tray</div>
-              <div className="next-tray-row">
+              <div
+                style={{
+                  display: 'flex',
+                  gap: 14,
+                  padding: '6px 0',
+                  justifyContent: 'space-between',
+                  alignItems: 'center',
+                  flexWrap: 'wrap',
+                  marginTop: 10,
+                }}
+              >
                 {nextTray.slice(0, 3).map((p, i) => (
-                  <div key={i} className="next-tray-slot">
+                  <div
+                    key={i}
+                    style={{
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                      minWidth: 48,
+                    }}
+                  >
                     <PieceShape shape={p.shape} color={p.color} size="mini" />
                   </div>
                 ))}
@@ -539,29 +561,49 @@ function ReshuffleCard({
   available,
   used,
   onUse,
+  passed,
+  stars,
+  onFinish,
 }: {
   available: boolean;
   used: boolean;
   onUse: () => void;
+  passed: boolean;
+  stars: 0 | 1 | 2 | 3;
+  onFinish: () => void;
 }) {
   return (
     <div className="undo-card">
-      <div className="eyebrow">reshuffle</div>
+      <div className="eyebrow">{passed ? 'level cleared' : 'reshuffle'}</div>
       <div style={{ fontFamily: 'var(--font-body)', fontSize: 14, marginTop: 8 }}>
-        {used
-          ? 'already used this run.'
-          : available
-            ? 'tray has no legal moves. redraw once for free.'
-            : '1 per level · redraws the tray if you deadlock.'}
+        {passed
+          ? stars >= 3
+            ? 'three stars — top marks.'
+            : `keep playing for ${3 - stars}★ more, or finish now.`
+          : used
+            ? 'already used this run.'
+            : available
+              ? 'tray has no legal moves. redraw once for free.'
+              : '1 per level · redraws the tray if you deadlock.'}
       </div>
-      <button
-        className="btn btn-primary"
-        disabled={!available}
-        onClick={onUse}
-        style={{ marginTop: 12, opacity: available ? 1 : 0.4 }}
-      >
-        Reshuffle tray
-      </button>
+      {passed ? (
+        <button
+          className="btn btn-primary"
+          onClick={onFinish}
+          style={{ marginTop: 12 }}
+        >
+          Finish level
+        </button>
+      ) : (
+        <button
+          className="btn btn-primary"
+          disabled={!available}
+          onClick={onUse}
+          style={{ marginTop: 12, opacity: available ? 1 : 0.4 }}
+        >
+          Reshuffle tray
+        </button>
+      )}
       <Link
         href="/levels"
         className="btn btn-secondary"
