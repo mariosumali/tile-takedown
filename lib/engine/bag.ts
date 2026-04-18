@@ -37,6 +37,16 @@ function filterDefs(variant: PieceSet): ReadonlyArray<PieceDef> {
   }
 }
 
+/** Resolve piece ids into defs; unknown ids are skipped. */
+function defsFromIds(ids: ReadonlyArray<string>): ReadonlyArray<PieceDef> {
+  const out: PieceDef[] = [];
+  for (const id of ids) {
+    const def = PIECE_DEFS.find((d) => d.id === id);
+    if (def) out.push(def);
+  }
+  return out;
+}
+
 export function makeRng(seed?: number): () => number {
   if (seed === undefined) return Math.random;
   let s = seed >>> 0 || 1;
@@ -50,13 +60,12 @@ function pickColor(rng: () => number): PieceColor {
   return PIECE_COLORS[Math.floor(rng() * PIECE_COLORS.length)];
 }
 
-/** Build a bag of 60 pieces (without replacement) for the current density. */
-export function buildBag(
-  variant: PieceSet,
+function bagFromDefs(
+  defs: ReadonlyArray<PieceDef>,
   density: number,
-  rng: () => number = Math.random,
+  rng: () => number,
 ): Piece[] {
-  const defs = filterDefs(variant);
+  if (defs.length === 0) return [];
   const weights = defs.map((d) => Math.max(0.05, weightFor(d, density)));
   const total = weights.reduce((a, b) => a + b, 0);
   const bag: Piece[] = [];
@@ -73,6 +82,26 @@ export function buildBag(
     bag.push({ shape: picked.shape, color: pickColor(rng) });
   }
   return shuffle(bag, rng);
+}
+
+/** Build a bag of 60 pieces (without replacement) for the current density. */
+export function buildBag(
+  variant: PieceSet,
+  density: number,
+  rng: () => number = Math.random,
+): Piece[] {
+  return bagFromDefs(filterDefs(variant), density, rng);
+}
+
+/** Build a bag from an explicit piece-id pool (used by Levels mode). */
+export function buildBagFromPool(
+  ids: ReadonlyArray<string>,
+  density: number,
+  rng: () => number = Math.random,
+): Piece[] {
+  const defs = defsFromIds(ids);
+  if (defs.length === 0) return buildBag('classic', density, rng);
+  return bagFromDefs(defs, density, rng);
 }
 
 function shuffle<T>(arr: T[], rng: () => number): T[] {
@@ -100,6 +129,22 @@ export function drawTray(
   return { tray, bag: rest };
 }
 
+/** Draw 3 pieces from a custom pool (Levels mode). */
+export function drawTrayFromPool(
+  bag: ReadonlyArray<Piece>,
+  pool: ReadonlyArray<string>,
+  density: number,
+  rng: () => number = Math.random,
+): { tray: Piece[]; bag: Piece[] } {
+  let working: Piece[] = bag.slice();
+  if (working.length < 3) {
+    working = working.concat(buildBagFromPool(pool, density, rng));
+  }
+  const tray = working.slice(0, 3);
+  const rest = working.slice(3);
+  return { tray, bag: rest };
+}
+
 /** Draw a single piece, topping up the bag if empty. */
 export function drawOne(
   bag: ReadonlyArray<Piece>,
@@ -110,6 +155,20 @@ export function drawOne(
   let working: Piece[] = bag.slice();
   if (working.length < 1) {
     working = working.concat(buildBag(variant, density, rng));
+  }
+  return { piece: working[0], bag: working.slice(1) };
+}
+
+/** Draw a single piece from a custom pool. */
+export function drawOneFromPool(
+  bag: ReadonlyArray<Piece>,
+  pool: ReadonlyArray<string>,
+  density: number,
+  rng: () => number = Math.random,
+): { piece: Piece; bag: Piece[] } {
+  let working: Piece[] = bag.slice();
+  if (working.length < 1) {
+    working = working.concat(buildBagFromPool(pool, density, rng));
   }
   return { piece: working[0], bag: working.slice(1) };
 }
