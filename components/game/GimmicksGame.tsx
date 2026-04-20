@@ -12,12 +12,11 @@ import PowerupTray from './PowerupTray';
 import LivesPips from './LivesPips';
 import { useGimmicksStore } from '@/stores/useGimmicksStore';
 import { useSettingsStore } from '@/stores/useSettingsStore';
+import { boardDensity, placePiece } from '@/lib/engine/grid';
 import {
-  boardDensity,
-  getClearedLines,
-  placePiece,
-} from '@/lib/engine/grid';
-import { canPlaceWithObstacles } from '@/lib/engine/obstacles';
+  canPlaceWithObstacles,
+  getClearedLinesMerged,
+} from '@/lib/engine/obstacles';
 import type { PieceShape as ShapeT, PieceColor } from '@/lib/types';
 import { playSfx, setSessionMuted, vibrate } from '@/lib/audio/sfx';
 
@@ -390,7 +389,7 @@ export default function GimmicksGame() {
       return { rows: [] as number[], cols: [] as number[] };
     }
     const placed = placePiece(run.board, activePiece, ghost.row, ghost.col);
-    return getClearedLines(placed);
+    return getClearedLinesMerged(placed, run.obstacles);
   }, [run, activePiece, ghost]);
 
   if (!run) return null;
@@ -441,33 +440,26 @@ export default function GimmicksGame() {
       {powerToast && (
         <div
           key={powerToast.id}
-          className="achievement-toast"
+          className="toast"
           role="status"
           aria-live="polite"
           style={{ pointerEvents: 'none' }}
         >
-          <div className="eyebrow">powerup</div>
-          <div
-            style={{
-              fontFamily: 'var(--font-display)',
-              fontSize: 22,
-              lineHeight: 1.05,
-            }}
-          >
-            {powerToast.title}
+          <div className="toast-icon" aria-hidden="true">
+            ✦
           </div>
-          {powerToast.subtitle && (
+          <div>
             <div
-              style={{
-                fontFamily: 'var(--font-body)',
-                fontSize: 13,
-                marginTop: 4,
-                opacity: 0.8,
-              }}
+              className="eyebrow"
+              style={{ marginBottom: 2, color: 'var(--ink-2)' }}
             >
-              {powerToast.subtitle}
+              powerup
             </div>
-          )}
+            <div className="toast-name">{powerToast.title}</div>
+            {powerToast.subtitle && (
+              <div className="toast-desc">{powerToast.subtitle}</div>
+            )}
+          </div>
         </div>
       )}
 
@@ -497,6 +489,7 @@ export default function GimmicksGame() {
           <GameBoard
             board={run.board}
             obstacles={run.obstacles}
+            powerupCells={run.powerupCells}
             ghostShape={!isDragging ? activePiece?.shape ?? null : null}
             ghostAnchor={
               !isDragging && ghost

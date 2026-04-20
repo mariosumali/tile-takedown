@@ -6,11 +6,14 @@ import type {
   Obstacle,
   PieceShape,
   PieceColor,
+  PowerUpId,
 } from '@/lib/types';
 import { pieceCells } from '@/lib/engine/pieces';
+import { POWERUPS } from '@/lib/engine/powerups';
 import ScorePopup from './ScorePopup';
 
 type ObstacleMap = Readonly<Record<string, Obstacle>>;
+type PowerupCellMap = Readonly<Record<string, PowerUpId>>;
 
 type Props = {
   board: BoardState;
@@ -21,9 +24,15 @@ type Props = {
    */
   mask?: ReadonlyArray<ReadonlyArray<boolean>>;
   /**
-   * Optional obstacle overlay (Gimmicks mode). Keys are "r-c" strings.
+   * Optional obstacle overlay (Gimmicks mode). Keys are "r:c" strings.
    */
   obstacles?: ObstacleMap;
+  /**
+   * Power-ups embedded into existing filled board cells (Gimmicks mode).
+   * Keys are "r:c" strings. When the underlying cell is cleared (by line or
+   * by another power-up), the embedded power-up triggers or is banked.
+   */
+  powerupCells?: PowerupCellMap;
   preclearRow?: number | null;
   preclearRows?: ReadonlyArray<number>;
   preclearCols?: ReadonlyArray<number>;
@@ -87,6 +96,7 @@ export default function GameBoard({
   board,
   mask,
   obstacles,
+  powerupCells,
   preclearRow = null,
   preclearRows = [],
   preclearCols = [],
@@ -253,6 +263,18 @@ export default function GameBoard({
                   {obstacle?.kind === 'bomb' && playable && (
                     <span>{obstacle.turnsLeft}</span>
                   )}
+                  {!obstacle &&
+                    playable &&
+                    v &&
+                    powerupCells?.[`${r}:${c}`] && (
+                      <span
+                        className="embedded-powerup"
+                        aria-label={`${POWERUPS[powerupCells[`${r}:${c}`]].name} hidden here`}
+                        title={`${POWERUPS[powerupCells[`${r}:${c}`]].name} — clear this tile to trigger`}
+                      >
+                        {POWERUPS[powerupCells[`${r}:${c}`]].glyph}
+                      </span>
+                    )}
                 </motion.div>
               );
             }),

@@ -6,6 +6,7 @@ import type {
   PieceShape,
 } from '../types';
 import { cloneBoard } from './grid';
+import type { ClearResult } from './grid';
 
 /* ------------------------------------------------------------------------ */
 /* Obstacle keys                                                             */
@@ -247,4 +248,138 @@ export function obstacleAt(
   c: number,
 ): Obstacle | undefined {
   return obstacles[obstacleKey(r, c)];
+}
+
+/* ------------------------------------------------------------------------ */
+/* Line clearing with obstacles counted as filled                            */
+/* ------------------------------------------------------------------------ */
+
+function isPlayableMask(
+  mask: BoardMask | undefined,
+  r: number,
+  c: number,
+): boolean {
+  if (!mask) return true;
+  return mask[r]?.[c] !== false;
+}
+
+/**
+ * Like `getClearedLines` from grid.ts, but also treats any cell with an
+ * obstacle as "filled". This makes obstacle tiles clearable when the line
+ * they sit on is otherwise completed.
+ */
+export function getClearedLinesMerged(
+  board: BoardState,
+  obstacles: ObstacleMap,
+  mask?: BoardMask,
+): ClearResult {
+  const rows = board.length;
+  const cols = board[0]?.length ?? 0;
+  const clearedRows: number[] = [];
+  const clearedCols: number[] = [];
+
+  for (let r = 0; r < rows; r++) {
+    let playable = 0;
+    let full = true;
+    for (let c = 0; c < cols; c++) {
+      if (!isPlayableMask(mask, r, c)) continue;
+      playable++;
+      const hasFill = board[r][c] !== null;
+      const hasObstacle = !!obstacles[obstacleKey(r, c)];
+      if (!hasFill && !hasObstacle) {
+        full = false;
+        break;
+      }
+    }
+    if (full && playable > 0) clearedRows.push(r);
+  }
+
+  for (let c = 0; c < cols; c++) {
+    let playable = 0;
+    let full = true;
+    for (let r = 0; r < rows; r++) {
+      if (!isPlayableMask(mask, r, c)) continue;
+      playable++;
+      const hasFill = board[r][c] !== null;
+      const hasObstacle = !!obstacles[obstacleKey(r, c)];
+      if (!hasFill && !hasObstacle) {
+        full = false;
+        break;
+      }
+    }
+    if (full && playable > 0) clearedCols.push(c);
+  }
+
+  return {
+    rows: clearedRows,
+    cols: clearedCols,
+    totalLines: clearedRows.length + clearedCols.length,
+  };
+}
+
+/**
+ * Clear the given rows and cols from both the board (null out tiles) and the
+ * obstacle map (remove any obstacle sitting on a cleared cell). Returns new
+ * instances — never mutates inputs.
+ */
+export function clearLinesWithObstacles(
+  board: BoardState,
+  obstacles: ObstacleMap,
+  rows: ReadonlyArray<number>,
+  cols: ReadonlyArray<number>,
+): { board: BoardState; obstacles: ObstacleMap } {
+  const rowCount = board.length;
+  const colCount = board[0]?.length ?? 0;
+  const nextBoard = cloneBoard(board);
+  const nextObstacles: ObstacleMap = { ...obstacles };
+
+  for (const r of rows) {
+    for (let c = 0; c < colCount; c++) {
+      nextBoard[r][c] = null;
+      delete nextObstacles[obstacleKey(r, c)];
+    }
+  }
+  for (const c of cols) {
+    for (let r = 0; r < rowCount; r++) {
+      nextBoard[r][c] = null;
+      delete nextObstacles[obstacleKey(r, c)];
+    }
+  }
+
+  return { board: nextBoard, obstacles: nextObstacles };
+}
+
+/**
+ * List every (r, c) coordinate that falls inside a cleared row or column
+ * (respecting an optional playable mask). Useful for scanning embedded
+ * powerups on cleared cells.
+ */
+export function cellsInClearedLines(
+  rows: ReadonlyArray<number>,
+  cols: ReadonlyArray<number>,
+  rowCount: number,
+  colCount: number,
+  mask?: BoardMask,
+): Array<[number, number]> {
+  const seen = new Set<string>();
+  const out: Array<[number, number]> = [];
+  for (const r of rows) {
+    for (let c = 0; c < colCount; c++) {
+      if (!isPlayableMask(mask, r, c)) continue;
+      const k = `${r}:${c}`;
+      if (seen.has(k)) continue;
+      seen.add(k);
+      out.push([r, c]);
+    }
+  }
+  for (const c of cols) {
+    for (let r = 0; r < rowCount; r++) {
+      if (!isPlayableMask(mask, r, c)) continue;
+      const k = `${r}:${c}`;
+      if (seen.has(k)) continue;
+      seen.add(k);
+      out.push([r, c]);
+    }
+  }
+  return out;
 }

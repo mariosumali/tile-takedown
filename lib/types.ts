@@ -166,6 +166,9 @@ export type Obstacle =
 
 export type ObstacleMap = Record<string, Obstacle>;
 
+/** Power-ups embedded into board cells. Keys are "r:c" strings. */
+export type PowerupCellMap = Record<string, PowerUpId>;
+
 export type GimmicksRunState = {
   id: string;
   board: BoardState;
@@ -187,6 +190,12 @@ export type GimmicksRunState = {
   powerMeter: number;
   lives: number;
   obstacles: ObstacleMap;
+  /**
+   * Power-ups embedded into existing filled tiles. When the tile is cleared
+   * (by line or by another powerup), the embedded power-up either triggers
+   * (target kinds) or is granted to the inventory (instant/modifier kinds).
+   */
+  powerupCells: PowerupCellMap;
   /** Random-but-deterministic seed for obstacle spawns. */
   seed: number;
   /** Powerups ever used in this run — for TOOLED_UP achievement. */

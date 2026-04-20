@@ -11,14 +11,13 @@ import type {
   PieceShape,
   PowerUpId,
   PowerUpInventory,
+  PowerupCellMap,
   TrayPiece,
 } from '@/lib/types';
 import {
   boardDensity,
   boardIsEmpty,
-  clearLines,
   createEmptyBoard,
-  getClearedLines,
   placePiece,
 } from '@/lib/engine/grid';
 import { scoreTurn } from '@/lib/engine/scoring';
@@ -42,6 +41,10 @@ import {
   advanceObstacles,
   canAnyPieceFitWithObstacles,
   canPlaceWithObstacles,
+  cellsInClearedLines,
+  clearLinesWithObstacles,
+  getClearedLinesMerged,
+  obstacleKey,
   shouldSpawnThisTurn,
   spawnPlanFor,
   sprinkleObstacles,
@@ -81,6 +84,7 @@ type Snap = Pick<
   | 'powerMeter'
   | 'lives'
   | 'obstacles'
+  | 'powerupCells'
   | 'usedPowerups'
 >;
 
@@ -181,6 +185,7 @@ export const useGimmicksStore = create<State>((set, get) => {
       powerMeter: run.powerMeter,
       lives: run.lives,
       obstacles: { ...run.obstacles },
+      powerupCells: { ...run.powerupCells },
       usedPowerups: run.usedPowerups.slice(),
     };
   }
@@ -211,6 +216,7 @@ export const useGimmicksStore = create<State>((set, get) => {
       powerMeter: 0,
       lives: STARTING_LIVES,
       obstacles: {},
+      powerupCells: {},
       seed: Math.floor(rng() * 1e9),
       usedPowerups: [],
     };
@@ -220,23 +226,177 @@ export const useGimmicksStore = create<State>((set, get) => {
     set({ powerToast: { id: Date.now(), title, subtitle } });
   }
 
-  /** Award power meter; spills over into a free powerup every time it fills. */
-  function bankPower(
-    run: GimmicksRunState,
+  /**
+   * Award power meter; returns any awarded power-up ids (in order) so the
+   * caller can embed them into board tiles or bank to inventory if there's
+   * no free tile to host them.
+   */
+  function bankMeter(
+    powerMeter: number,
     delta: number,
-  ): { powerMeter: number; powerups: PowerUpInventory; awarded: PowerUpId | null } {
-    let meter = run.powerMeter + delta;
-    let awarded: PowerUpId | null = null;
-    let inv = run.powerups;
+  ): { powerMeter: number; awarded: PowerUpId[] } {
+    let meter = powerMeter + delta;
+    const awarded: PowerUpId[] = [];
     while (meter >= POWER_METER_MAX) {
       meter -= POWER_METER_MAX;
       const drop =
         rollPowerupDrop(2) ??
         POWERUP_ORDER[Math.floor(Math.random() * POWERUP_ORDER.length)];
-      inv = addToInventory(inv, drop);
-      awarded = drop;
+      awarded.push(drop);
     }
-    return { powerMeter: meter, powerups: inv, awarded };
+    return { powerMeter: meter, awarded };
+  }
+
+  /**
+   * Pick a random filled, non-obstacle, non-already-embedded cell and embed
+   * the given power-up id on it. If the board has no candidate cells, fall
+   * back to dropping straight into the inventory.
+   */
+  function embedOrBank(
+    board: BoardState,
+    obstacles: ObstacleMap,
+    powerupCells: PowerupCellMap,
+    inventory: PowerUpInventory,
+    id: PowerUpId,
+  ): {
+    powerupCells: PowerupCellMap;
+    inventory: PowerUpInventory;
+    embeddedAt: [number, number] | null;
+  } {
+    const candidates: Array<[number, number]> = [];
+    for (let r = 0; r < board.length; r++) {
+      for (let c = 0; c < (board[0]?.length ?? 0); c++) {
+        if (board[r][c] === null) continue;
+        const key = obstacleKey(r, c);
+        if (obstacles[key]) continue;
+        if (powerupCells[key]) continue;
+        candidates.push([r, c]);
+      }
+    }
+    if (candidates.length === 0) {
+      return {
+        powerupCells,
+        inventory: addToInventory(inventory, id),
+        embeddedAt: null,
+      };
+    }
+    const [r, c] = candidates[Math.floor(Math.random() * candidates.length)];
+    return {
+      powerupCells: { ...powerupCells, [obstacleKey(r, c)]: id },
+      inventory,
+      embeddedAt: [r, c],
+    };
+  }
+
+  /**
+   * Resolve embedded power-ups sitting on cells that were just cleared.
+   *
+   * Target-kind powerups fire an effect at their cell (bomb/row/col/color),
+   * which can cascade into further cell clears — we process those via a
+   * worklist so chained triggers all resolve in one pass. Instant/modifier
+   * kinds fall into the inventory instead.
+   */
+  function resolveEmbeddedTriggers(
+    boardIn: BoardState,
+    obstaclesIn: ObstacleMap,
+    powerupCellsIn: PowerupCellMap,
+    inventoryIn: PowerUpInventory,
+    initialClearedCells: ReadonlyArray<readonly [number, number]>,
+    preClearBoard: BoardState,
+  ): {
+    board: BoardState;
+    obstacles: ObstacleMap;
+    powerupCells: PowerupCellMap;
+    inventory: PowerUpInventory;
+    bonus: number;
+    triggered: PowerUpId[];
+    granted: PowerUpId[];
+    allClearedCells: Array<[number, number]>;
+  } {
+    let board = boardIn;
+    let obstacles = obstaclesIn;
+    const powerupCells: PowerupCellMap = { ...powerupCellsIn };
+    let inventory = inventoryIn;
+    let bonus = 0;
+    const triggered: PowerUpId[] = [];
+    const granted: PowerUpId[] = [];
+
+    // Track color of cells at the moment they were cleared so embedded
+    // color_clear powerups can pick up the right palette.
+    const colorAt = new Map<string, PieceColor | null>();
+    for (const [r, c] of initialClearedCells) {
+      colorAt.set(obstacleKey(r, c), preClearBoard[r]?.[c] ?? null);
+    }
+
+    const visited = new Set<string>();
+    const queue: Array<[number, number]> = initialClearedCells.map(
+      ([r, c]) => [r, c] as [number, number],
+    );
+    const allCleared: Array<[number, number]> = [];
+
+    while (queue.length > 0) {
+      const [r, c] = queue.shift()!;
+      const key = obstacleKey(r, c);
+      if (visited.has(key)) continue;
+      visited.add(key);
+      allCleared.push([r, c]);
+
+      const pid = powerupCells[key];
+      if (!pid) continue;
+      delete powerupCells[key];
+
+      const def = POWERUPS[pid];
+      if (def.kind !== 'target') {
+        inventory = addToInventory(inventory, pid);
+        granted.push(pid);
+        continue;
+      }
+
+      let effect: ReturnType<typeof useBomb> | null = null;
+      if (pid === 'bomb') {
+        effect = useBomb(board, obstacles, r, c);
+      } else if (pid === 'row_nuke') {
+        effect = useRowNuke(board, obstacles, r);
+      } else if (pid === 'col_nuke') {
+        effect = useColNuke(board, obstacles, c);
+      } else if (pid === 'color_clear') {
+        const color = colorAt.get(key) ?? null;
+        if (!color) {
+          inventory = addToInventory(inventory, pid);
+          granted.push(pid);
+          continue;
+        }
+        effect = useColorClear(board, obstacles, color);
+      }
+      if (!effect) continue;
+
+      // Remember colors of the newly-cleared cells BEFORE we overwrite
+      // the board reference — these are needed if a later trigger is a
+      // color_clear embedded in one of them.
+      for (const [er, ec] of effect.cellsCleared) {
+        const ek = obstacleKey(er, ec);
+        if (!colorAt.has(ek)) colorAt.set(ek, board[er]?.[ec] ?? null);
+      }
+
+      board = effect.board;
+      obstacles = effect.obstacles;
+      bonus += effect.bonus;
+      triggered.push(pid);
+      for (const cell of effect.cellsCleared) {
+        queue.push([cell[0], cell[1]]);
+      }
+    }
+
+    return {
+      board,
+      obstacles,
+      powerupCells,
+      inventory,
+      bonus,
+      triggered,
+      granted,
+      allClearedCells: allCleared,
+    };
   }
 
   return {
@@ -258,7 +418,11 @@ export const useGimmicksStore = create<State>((set, get) => {
     hydrate: () => {
       const existing = readJSON<GimmicksRunState | null>(K.gimmicksRun, null);
       if (existing && !existing.gameOver) {
-        set({ run: existing, hydrated: true });
+        const migrated: GimmicksRunState = {
+          ...existing,
+          powerupCells: existing.powerupCells ?? {},
+        };
+        set({ run: migrated, hydrated: true });
       } else {
         set({ hydrated: true });
       }
@@ -358,20 +522,81 @@ export const useGimmicksStore = create<State>((set, get) => {
 
       const snap = snapshotRun();
       const placed = placePiece(run.board, piece, row, col);
-      const cleared = getClearedLines(placed);
-      const afterClearRaw = clearLines(placed, cleared.rows, cleared.cols);
 
-      // Advance obstacle timers AFTER the placement resolves.
-      const advance = advanceObstacles(afterClearRaw, run.obstacles);
-      let board: BoardState = advance.board;
-      let obstacles = advance.obstacles;
+      // Line-clear detection counts obstacles as "filled" so they can be
+      // cleared by completing their row/column.
+      const cleared = getClearedLinesMerged(placed, run.obstacles);
+      const { board: afterClearBoard, obstacles: afterClearObs } =
+        clearLinesWithObstacles(
+          placed,
+          run.obstacles,
+          cleared.rows,
+          cleared.cols,
+        );
+
+      // Cells that were cleared by lines — these may contain embedded
+      // power-ups that we now need to trigger or bank.
+      const clearedCellList = cellsInClearedLines(
+        cleared.rows,
+        cleared.cols,
+        placed.length,
+        placed[0]?.length ?? 0,
+      );
+
+      const resolved = resolveEmbeddedTriggers(
+        afterClearBoard,
+        afterClearObs,
+        run.powerupCells,
+        run.powerups,
+        clearedCellList,
+        placed,
+      );
+
+      let board: BoardState = resolved.board;
+      let obstacles = resolved.obstacles;
+      let powerupCells = resolved.powerupCells;
+      let powerups = resolved.inventory;
+      let embedBonus = resolved.bonus;
+
+      // Announce triggered / granted powerups from the clear.
+      const toastQueue: Array<{ title: string; subtitle?: string }> = [];
+      for (const pid of resolved.triggered) {
+        toastQueue.push({
+          title: `${POWERUPS[pid].name} triggered`,
+          subtitle: 'from cleared tile',
+        });
+      }
+      for (const pid of resolved.granted) {
+        toastQueue.push({
+          title: `Earned ${POWERUPS[pid].name}`,
+          subtitle: 'from cleared tile',
+        });
+      }
+
+      // Advance obstacle timers AFTER clears + triggers resolve.
+      const advance = advanceObstacles(board, obstacles);
+      board = advance.board;
+      obstacles = advance.obstacles;
+
+      // Any embedded powerups sitting on bomb-exploded cells are just lost
+      // collateral — strip them from the map.
+      if (advance.bombExploded) {
+        for (const [er, ec] of advance.explodedCells) {
+          const ek = obstacleKey(er, ec);
+          if (powerupCells[ek]) {
+            const next = { ...powerupCells };
+            delete next[ek];
+            powerupCells = next;
+          }
+        }
+      }
 
       // Bomb explosions cost a life.
       const livesAfterBomb = advance.bombExploded
         ? Math.max(0, run.lives - 1)
         : run.lives;
       if (advance.bombExploded) {
-        firePowerToast('Bomb detonated', '-1 life');
+        toastQueue.unshift({ title: 'Bomb detonated', subtitle: '-1 life' });
       }
 
       const perfect = cleared.totalLines > 0 && boardIsEmpty(board);
@@ -401,25 +626,46 @@ export const useGimmicksStore = create<State>((set, get) => {
       nextTray = nextTray.concat(withId(drawn.piece));
       bag = drawn.bag;
 
-      // Power meter accrual + random drops from clears.
+      // Power meter accrual — instead of banking straight to the inventory,
+      // we now embed awarded powerups into random filled cells on the board.
       let powerMeter = run.powerMeter;
-      let powerups: PowerUpInventory = run.powerups;
       const meterGain = powerMeterGain(cleared.totalLines, perfect);
       if (meterGain > 0) {
-        const banked = bankPower({ ...run, powerMeter, powerups }, meterGain);
+        const banked = bankMeter(powerMeter, meterGain);
         powerMeter = banked.powerMeter;
-        powerups = banked.powerups;
-        if (banked.awarded) {
-          const def = POWERUPS[banked.awarded];
-          firePowerToast(`Earned ${def.name}`, def.blurb);
+        for (const pid of banked.awarded) {
+          const res = embedOrBank(board, obstacles, powerupCells, powerups, pid);
+          powerupCells = res.powerupCells;
+          powerups = res.inventory;
+          const def = POWERUPS[pid];
+          if (res.embeddedAt) {
+            toastQueue.push({
+              title: `${def.name} hid on the board`,
+              subtitle: 'clear its line to trigger',
+            });
+          } else {
+            toastQueue.push({ title: `Earned ${def.name}`, subtitle: def.blurb });
+          }
         }
       }
       if (cleared.totalLines > 0) {
         const bonus = rollPowerupDrop(cleared.totalLines);
         if (bonus) {
-          powerups = addToInventory(powerups, bonus);
+          const res = embedOrBank(board, obstacles, powerupCells, powerups, bonus);
+          powerupCells = res.powerupCells;
+          powerups = res.inventory;
           const def = POWERUPS[bonus];
-          firePowerToast(`Bonus: ${def.name}`, 'dropped from clear');
+          if (res.embeddedAt) {
+            toastQueue.push({
+              title: `${def.name} hid on the board`,
+              subtitle: 'clear its line to trigger',
+            });
+          } else {
+            toastQueue.push({
+              title: `Bonus: ${def.name}`,
+              subtitle: 'dropped from clear',
+            });
+          }
         }
       }
 
@@ -435,7 +681,7 @@ export const useGimmicksStore = create<State>((set, get) => {
 
       const comboPeak = Math.max(run.comboPeak, combo);
       const perfectClears = run.perfectClears + (perfect ? 1 : 0);
-      const score = run.score + turnScore.total;
+      const score = run.score + turnScore.total + embedBonus;
 
       const nextRun: GimmicksRunState = {
         ...run,
@@ -453,15 +699,20 @@ export const useGimmicksStore = create<State>((set, get) => {
         powerMeter,
         lives: livesAfterBomb,
         obstacles,
+        powerupCells,
         lastAt: new Date().toISOString(),
       };
 
       const popup: ScorePopup = {
         id: Date.now(),
-        amount: turnScore.total - turnScore.placement,
+        amount: turnScore.total - turnScore.placement + embedBonus,
         mult: turnScore.multiplier.toFixed(2),
       };
 
+      // Animation only plays the pop for cells along the originally-cleared
+      // rows and columns. Cells destroyed purely by an embedded trigger's
+      // cascade just blink away — pretending an entire unrelated row popped
+      // would mislead the player about what actually cleared.
       const clearingRows = cleared.totalLines > 0 ? cleared.rows.slice() : [];
       const clearingCols = cleared.totalLines > 0 ? cleared.cols.slice() : [];
       const clearingBoard: BoardState | null =
@@ -475,12 +726,19 @@ export const useGimmicksStore = create<State>((set, get) => {
         selectedTrayIndex: null,
         ghost: null,
         undoStack,
-        scorePopup: cleared.totalLines > 0 ? popup : null,
+        scorePopup: cleared.totalLines > 0 || embedBonus > 0 ? popup : null,
         turn: state.turn + 1,
         clearingRows,
         clearingCols,
         clearingBoard,
       });
+
+      // Fire the single most-relevant toast rather than stacking several —
+      // the toast is a singleton overlay and rapid-fire updates are jarring.
+      if (toastQueue.length > 0) {
+        const top = toastQueue[0];
+        firePowerToast(top.title, top.subtitle);
+      }
 
       if (cleared.totalLines > 0) {
         playClearSfx(cleared.totalLines, turnScore.multiplier);
@@ -564,6 +822,7 @@ export const useGimmicksStore = create<State>((set, get) => {
         powerMeter: snap.powerMeter,
         lives: snap.lives,
         obstacles: { ...snap.obstacles },
+        powerupCells: { ...snap.powerupCells },
         usedPowerups: snap.usedPowerups.slice(),
         undosUsed: run.undosUsed + 1,
         lastAt: new Date().toISOString(),
@@ -682,12 +941,24 @@ export const useGimmicksStore = create<State>((set, get) => {
         return false;
       }
 
+      // Embedded power-ups sitting on cells this effect destroyed get
+      // chain-triggered the same way a line clear would.
+      const resolved = resolveEmbeddedTriggers(
+        effect.board,
+        effect.obstacles,
+        run.powerupCells,
+        removeFromInventory(run.powerups, id),
+        effect.cellsCleared.map(([r, c]) => [r, c] as [number, number]),
+        run.board,
+      );
+
       const next: GimmicksRunState = {
         ...run,
-        board: effect.board,
-        obstacles: effect.obstacles,
-        score: run.score + effect.bonus,
-        powerups: removeFromInventory(run.powerups, id),
+        board: resolved.board,
+        obstacles: resolved.obstacles,
+        powerupCells: resolved.powerupCells,
+        powerups: resolved.inventory,
+        score: run.score + effect.bonus + resolved.bonus,
         usedPowerups: run.usedPowerups.concat(id),
         lastAt: new Date().toISOString(),
       };
@@ -696,7 +967,8 @@ export const useGimmicksStore = create<State>((set, get) => {
         pendingPower: null,
       });
       persistRun(next);
-      firePowerToast(POWERUPS[id].name, `+${effect.bonus} bonus`);
+      const bonusTotal = effect.bonus + resolved.bonus;
+      firePowerToast(POWERUPS[id].name, `+${bonusTotal} bonus`);
       if (next.usedPowerups.length >= 3) {
         useStatsStore.getState().unlock('TOOLED_UP');
       }

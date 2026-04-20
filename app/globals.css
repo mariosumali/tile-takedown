@@ -128,41 +128,72 @@ button {
 
 /* ---------- Nav ---------- */
 .nav {
-  padding: 24px 40px;
+  padding: 20px 40px;
   padding-left: max(40px, env(safe-area-inset-left));
   padding-right: max(40px, env(safe-area-inset-right));
   display: flex;
   align-items: center;
   justify-content: space-between;
+  gap: 24px;
   max-width: 1440px;
   margin: 0 auto;
   position: relative;
   z-index: 2;
 }
 .brand {
-  display: flex;
+  display: inline-flex;
   align-items: center;
-  gap: 14px;
+  gap: 12px;
+  padding: 6px 16px 6px 8px;
+  background: var(--paper);
+  border: 2px solid var(--ink);
+  border-radius: var(--r-lg);
+  box-shadow: var(--shadow-sm);
+  color: var(--ink);
+  transition: transform 120ms, box-shadow 120ms;
+  touch-action: manipulation;
+}
+.brand:hover {
+  transform: translate(-1px, -1px);
+  box-shadow: 4px 4px 0 0 var(--ink);
+}
+.brand:active {
+  transform: translate(2px, 2px);
+  box-shadow: 0 0 0 0 var(--ink);
 }
 .brand-name {
   font-family: var(--font-display), 'Caprasimo', serif;
-  font-size: 26px;
+  font-size: 24px;
+  line-height: 1;
 }
 .nav-links {
   display: flex;
-  gap: 6px;
+  align-items: center;
+  gap: 4px;
+  padding: 6px;
+  background: var(--paper);
+  border: 2px solid var(--ink);
+  border-radius: var(--r-pill);
+  box-shadow: var(--shadow-sm);
 }
 .nav-link {
-  padding: 10px 18px;
+  position: relative;
+  padding: 8px 16px;
   border-radius: var(--r-pill);
   font-size: 15px;
   font-variation-settings: 'opsz' 14, 'wght' 500;
-  transition: background 120ms;
+  color: var(--ink);
+  transition: background 120ms, color 120ms;
 }
 .nav-link:hover {
   background: var(--paper-2);
 }
 .nav-link.active {
+  background: var(--ink);
+  color: var(--paper);
+  font-variation-settings: 'opsz' 14, 'wght' 600;
+}
+.nav-link.active:hover {
   background: var(--ink);
   color: var(--paper);
 }
@@ -942,6 +973,17 @@ button {
   border: 2px solid var(--ink);
   border-radius: var(--r-lg);
   box-shadow: var(--shadow-sm);
+  color: var(--ink);
+  transition: transform 120ms, box-shadow 120ms;
+  touch-action: manipulation;
+}
+.brand-lockup:hover {
+  transform: translate(-1px, -1px);
+  box-shadow: 4px 4px 0 0 var(--ink);
+}
+.brand-lockup:active {
+  transform: translate(2px, 2px);
+  box-shadow: 0 0 0 0 var(--ink);
 }
 .mode-pill {
   display: inline-flex;
@@ -1282,6 +1324,37 @@ button {
   to   { transform: scale(1.04); filter: brightness(1.15); }
 }
 
+/* Gimmicks-mode embedded powerup glyph. Sits on top of a filled tile to
+   telegraph that clearing this cell will trigger or grant the powerup. */
+.board-grid .cell .embedded-powerup {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-family: var(--font-display), 'Caprasimo', serif;
+  font-size: 0.68em;
+  line-height: 1;
+  color: var(--ink);
+  background: var(--paper);
+  border: 2px solid var(--ink);
+  border-radius: 50%;
+  width: 46%;
+  height: 46%;
+  margin: auto;
+  box-shadow: 2px 2px 0 0 var(--ink);
+  pointer-events: none;
+  z-index: 2;
+  animation: embedded-powerup-pulse 1600ms ease-in-out infinite alternate;
+}
+.board-grid .cell.filled {
+  position: relative;
+}
+@keyframes embedded-powerup-pulse {
+  from { transform: scale(0.94); }
+  to   { transform: scale(1.04); }
+}
+
 /* ---------- Score popup ----------
    Layout only; motion is owned by framer-motion in ScorePopup.tsx so the
    two systems don't fight over `transform` / `opacity`. */
@@ -1582,13 +1655,15 @@ button {
 @media (max-width: 760px) {
   /* Nav: swap links for hamburger */
   .nav {
-    padding: 18px 20px;
+    padding: 14px 20px;
     padding-left: max(20px, env(safe-area-inset-left));
     padding-right: max(20px, env(safe-area-inset-right));
+    gap: 12px;
   }
   .nav-links { display: none; }
   .nav-toggle { display: inline-flex; }
-  .brand-name { font-size: 22px; }
+  .brand { padding: 5px 12px 5px 6px; gap: 10px; }
+  .brand-name { font-size: 20px; }
 
   /* Hero */
   .hero {
