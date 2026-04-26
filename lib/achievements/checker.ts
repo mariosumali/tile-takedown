@@ -33,7 +33,7 @@ export function checkAchievements(ctx: CheckContext): string[] {
     if (event.lines >= 2) out.push('DOUBLE_UP');
     if (event.lines >= 3) out.push('TRIPLE_THREAT');
     if (event.lines >= 4) out.push('QUAD_SQUAD');
-    if (event.combo >= 8) out.push('COMBO_BREAKER'); // 1 + 0.25*8 = 3.0
+    if (event.combo >= 7) out.push('COMBO_BREAKER'); // 1 + 0.3*7 = 3.1 ≥ 3.0
     if (event.perfect) {
       out.push('PERFECT_ONCE');
       if (stats.perfectClears + 1 >= 10) out.push('PERFECT_10');

@@ -5,13 +5,13 @@ import type { LevelTier } from '../types';
  * archaeology expedition. Anchored to the Classic scoring formula in
  * `lib/engine/scoring.ts`:
  *
- *   placement:  1 / cell
- *   clear:      18 · 42 · 72 · 112 (single / double / triple / quad)
- *   combo:      1 + 0.25 · streak (cap 3.0)
- *   perfect:    +200 bonus
+ *   placement:  2 / cell
+ *   clear:      50 · 150 · 400 · 1000 (single / double / triple / quad) — each step is a larger bump than 1:1, Tetris-style
+ *   combo:      1 + 0.3 · consecutive clearing turns (cap 4.0), one grace turn (no clear) before streak breaks
+ *   perfect:    +500 bonus
  *
  * Assumed "competent" turn yield when projecting tier targets:
- *   - one single-line clear every ~4 placements  (≈ 4 cells · 4 turns + 18 = 34 pts / 4 turns)
+ *   - one single-line clear every ~4 placements  (≈ 4 cells · 2 · 4 turns + 50 = 82 pts / 4 turns ≈ 20 pts/turn)
  *   - occasional double / triple per tier as difficulty climbs.
  */
 
@@ -30,37 +30,37 @@ export type TierSpec = {
 
 export const TIER_SPECS: Record<LevelTier, TierSpec> = {
   1: {
-    baseTarget: 120,
+    baseTarget: 300,
     growth: 1.04,
-    stepBump: 6,
+    stepBump: 15,
     label: 'Onboarding',
     blurb: 'Small boards, friendly pieces. Learn the grooves.',
   },
   2: {
-    baseTarget: 320,
+    baseTarget: 800,
     growth: 1.04,
-    stepBump: 10,
+    stepBump: 25,
     label: 'Shapes',
     blurb: 'The grid learns new tricks. Masks, voids, shaped boards.',
   },
   3: {
-    baseTarget: 450,
+    baseTarget: 1125,
     growth: 1.03,
-    stepBump: 10,
+    stepBump: 25,
     label: 'Stretch',
     blurb: 'Tall boards, wide boards. Breathe, plan, place.',
   },
   4: {
-    baseTarget: 560,
+    baseTarget: 1400,
     growth: 1.028,
-    stepBump: 8,
+    stepBump: 20,
     label: 'Awkward',
     blurb: 'Odd silhouettes, pentomino pressure. Things get nasty.',
   },
   5: {
-    baseTarget: 700,
+    baseTarget: 1750,
     growth: 1.02,
-    stepBump: 10,
+    stepBump: 25,
     label: 'Gauntlet',
     blurb: 'Everything, everywhere. The final twenty.',
   },
