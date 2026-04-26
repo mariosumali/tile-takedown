@@ -6,6 +6,7 @@ import Nav from '@/components/Nav';
 import Footer from '@/components/Footer';
 import { useStatsStore } from '@/stores/useStatsStore';
 import { ACHIEVEMENTS } from '@/lib/achievements/definitions';
+import { comboMultiplier } from '@/lib/engine/scoring';
 
 function formatDuration(ms: number): string {
   if (ms <= 0) return '0m';
@@ -59,7 +60,7 @@ export default function StatsView() {
           <StatCard label="Avg per run" value={avg.toLocaleString()} />
           <StatCard label="Placements" value={stats.totalPlacements.toLocaleString()} />
           <StatCard label="Line clears" value={totalClears.toLocaleString()} />
-          <StatCard label="Longest combo" value={`×${Math.min(3, 1 + 0.25 * stats.longestCombo).toFixed(2)}`} />
+          <StatCard label="Longest combo" value={`×${comboMultiplier(stats.longestCombo).toFixed(2)}`} />
           <StatCard label="Perfect clears" value={stats.perfectClears} accent="mustard" />
           <StatCard label="Time played" value={formatDuration(stats.msPlayed)} />
           <StatCard

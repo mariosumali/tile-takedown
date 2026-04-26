@@ -2,6 +2,7 @@
 
 import Link from 'next/link';
 import type { RunState, LifetimeStats } from '@/lib/types';
+import { comboMultiplier } from '@/lib/engine/scoring';
 
 type Props = {
   run: RunState;
@@ -57,7 +58,7 @@ export default function GameOverCard({
           <div className="go-stat">
             <div className="eyebrow">longest combo</div>
             <div className="num">
-              &times;{(1 + 0.25 * run.comboPeak).toFixed(2)}
+              &times;{comboMultiplier(run.comboPeak).toFixed(2)}
             </div>
           </div>
           <div className="go-stat">
