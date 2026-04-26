@@ -10,6 +10,7 @@ import MiniStats from './MiniStats';
 import PieceShape from '../PieceShape';
 import PowerupTray from './PowerupTray';
 import LivesPips from './LivesPips';
+import ClearEffects from './ClearEffects';
 import { useGimmicksStore } from '@/stores/useGimmicksStore';
 import { useSettingsStore } from '@/stores/useSettingsStore';
 import { boardDensity, placePiece } from '@/lib/engine/grid';
@@ -17,8 +18,10 @@ import {
   canPlaceWithObstacles,
   getClearedLinesMerged,
 } from '@/lib/engine/obstacles';
+import { comboMultiplier } from '@/lib/engine/scoring';
 import type { PieceShape as ShapeT, PieceColor } from '@/lib/types';
 import { playSfx, setSessionMuted, vibrate } from '@/lib/audio/sfx';
+import { isTouchLikeEnvironment, useTouchLike } from '@/lib/useTouchLike';
 
 export default function GimmicksGame() {
   const hydrated = useGimmicksStore((s) => s.hydrated);
@@ -72,6 +75,7 @@ export default function GimmicksGame() {
     gap: 5,
   });
   const [wobbleKey, setWobbleKey] = useState(0);
+  const boardWrapRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     settingsHydrate();
@@ -352,6 +356,7 @@ export default function GimmicksGame() {
         return;
       }
       if ((e.key === 'r' || e.key === 'R') && rotationEnabled) {
+        if (isTouchLikeEnvironment()) return;
         e.preventDefault();
         rotateSelected();
         return;
@@ -403,9 +408,7 @@ export default function GimmicksGame() {
         } ready`
       : '';
 
-  const comboMultStr = (1 + 0.25 * run.combo).toFixed(2);
-  const comboDisplay =
-    run.combo > 0 ? `×${Math.min(3, Number(comboMultStr)).toFixed(2)}` : '×1.00';
+  const comboDisplay = `×${comboMultiplier(run.combo).toFixed(2)}`;
   const comboOn = Math.min(4, run.combo);
 
   const totalClears =
@@ -418,11 +421,12 @@ export default function GimmicksGame() {
     { k: 'Used', v: run.usedPowerups.length },
   ];
 
+  const isTouchLike = useTouchLike();
   const trayHint = pendingPower
     ? 'tap a cell on the board to activate your powerup'
     : tapToSelect
       ? 'tap a piece, then tap the board'
-      : rotationEnabled
+      : rotationEnabled && !isTouchLike
         ? 'drag onto the board · R to rotate'
         : 'drag a piece onto the board';
 
@@ -485,7 +489,7 @@ export default function GimmicksGame() {
           />
         </div>
 
-        <div className="board-wrap">
+        <div className="board-wrap" ref={boardWrapRef}>
           <GameBoard
             board={run.board}
             obstacles={run.obstacles}
@@ -543,6 +547,7 @@ export default function GimmicksGame() {
             onActivate={(id) => activatePower(id)}
             onCancel={() => cancelPower()}
           />
+          {/* Temporarily hidden: upcoming/next-tray preview.
           {run.nextTray.length > 0 && (
             <div className="next-tray-card">
               <div className="eyebrow">next tray</div>
@@ -555,9 +560,19 @@ export default function GimmicksGame() {
               </div>
             </div>
           )}
+          */}
           <MiniStats rows={miniStatsRows} />
         </div>
       </div>
+
+      <ClearEffects
+        board={run.board}
+        clearingBoard={clearingBoard}
+        clearingRows={clearingRows}
+        clearingCols={clearingCols}
+        combo={run.combo}
+        boardWrapRef={boardWrapRef}
+      />
 
       {isDragging && activePiece && (
         <div
@@ -607,7 +622,7 @@ export default function GimmicksGame() {
               </div>
               <div className="go-stat">
                 <div className="eyebrow">peak combo</div>
-                <div className="num">×{(1 + 0.25 * run.comboPeak).toFixed(2)}</div>
+                <div className="num">×{comboMultiplier(run.comboPeak).toFixed(2)}</div>
               </div>
             </div>
             <div className="go-cta">

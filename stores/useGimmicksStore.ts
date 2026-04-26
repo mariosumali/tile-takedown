@@ -21,11 +21,11 @@ import {
   placePiece,
 } from '@/lib/engine/grid';
 import { scoreTurn } from '@/lib/engine/scoring';
-import { buildBag, drawTray, drawOne } from '@/lib/engine/bag';
+import { generateSolvableBatch } from '@/lib/engine/trayGen';
 import { pieceSize, rotateShape } from '@/lib/engine/pieces';
 import { K } from '@/lib/storage/keys';
 import { readJSON, writeJSON, remove } from '@/lib/storage/safe';
-import { playClearSfx } from '@/lib/audio/sfx';
+import { playClearSfx, playComboSfx } from '@/lib/audio/sfx';
 import {
   POWERUPS,
   POWERUP_ORDER,
@@ -51,6 +51,7 @@ import {
 } from '@/lib/engine/obstacles';
 import { useStatsStore } from './useStatsStore';
 import { useSettingsStore } from './useSettingsStore';
+import { effectiveRotationEnabled } from '@/lib/useTouchLike';
 
 /* ------------------------------------------------------------------------ */
 /* Types                                                                     */
@@ -191,16 +192,29 @@ export const useGimmicksStore = create<State>((set, get) => {
   }
 
   function buildInitialRun(): GimmicksRunState {
-    const rng = Math.random;
     const pieceSet = useSettingsStore.getState().pieceSet;
-    const bag0 = buildBag(pieceSet, 0, rng);
-    const first = drawTray(bag0, pieceSet, 0, rng);
-    const next = drawTray(first.bag, pieceSet, 0, rng);
+    const rotationAllowed = effectiveRotationEnabled(
+      useSettingsStore.getState().rotation,
+    );
+    const board = freshBoard();
+    const source = { kind: 'classic' as const, pieceSet };
+    const first = generateSolvableBatch({
+      board,
+      bag: [],
+      source,
+      rotationAllowed,
+    });
+    const second = generateSolvableBatch({
+      board,
+      bag: first.bag,
+      source,
+      rotationAllowed,
+    });
     return {
       id: makeId(),
-      board: freshBoard(),
+      board,
       tray: first.tray.map(withId),
-      nextTray: next.tray.map(withId),
+      nextTray: second.tray.map(withId),
       score: 0,
       combo: 0,
       comboPeak: 0,
@@ -211,13 +225,13 @@ export const useGimmicksStore = create<State>((set, get) => {
       startedAt: new Date().toISOString(),
       lastAt: new Date().toISOString(),
       gameOver: false,
-      bag: next.bag,
+      bag: second.bag,
       powerups: {},
       powerMeter: 0,
       lives: STARTING_LIVES,
       obstacles: {},
       powerupCells: {},
-      seed: Math.floor(rng() * 1e9),
+      seed: Math.floor(Math.random() * 1e9),
       usedPowerups: [],
     };
   }
@@ -497,7 +511,7 @@ export const useGimmicksStore = create<State>((set, get) => {
       const { run, selectedTrayIndex, freeRotateArmed } = state;
       if (!run || selectedTrayIndex === null) return;
       const rotate = useSettingsStore.getState().rotation;
-      if (!rotate && !freeRotateArmed) return;
+      if (!effectiveRotationEnabled(rotate) && !freeRotateArmed) return;
       const piece = run.tray[selectedTrayIndex];
       if (!piece) return;
       const nextShape = rotateShape(piece.shape);
@@ -614,17 +628,31 @@ export const useGimmicksStore = create<State>((set, get) => {
       else if (cleared.totalLines === 3) clears.triple++;
       else if (cleared.totalLines >= 4) clears.quad++;
 
-      // Tray refill (same as Classic).
+      // Batch-refresh tray: vacate the slot now, swap in `nextTray` only once
+      // all three slots are empty, then queue a fresh solvable batch.
       const pieceSetVariant = useSettingsStore.getState().pieceSet;
+      const rotationAllowed = effectiveRotationEnabled(
+        useSettingsStore.getState().rotation,
+      );
       const density = boardDensity(board);
-      const tray = run.tray.slice();
-      const incoming = run.nextTray[0] ?? null;
-      tray[trayIndex] = incoming;
-      let nextTray = run.nextTray.slice(1);
-      let bag = run.bag;
-      const drawn = drawOne(bag, pieceSetVariant, density);
-      nextTray = nextTray.concat(withId(drawn.piece));
-      bag = drawn.bag;
+      let tray: (TrayPiece | null)[] = run.tray.slice();
+      tray[trayIndex] = null;
+      let nextTray: TrayPiece[] = run.nextTray;
+      let bag: ReadonlyArray<Piece> = run.bag;
+
+      const trayExhausted = tray.every((t) => t === null);
+      if (trayExhausted) {
+        tray = nextTray.slice();
+        const drawn = generateSolvableBatch({
+          board,
+          bag: bag.slice(),
+          source: { kind: 'classic', pieceSet: pieceSetVariant },
+          rotationAllowed,
+          density,
+        });
+        nextTray = drawn.tray.map(withId);
+        bag = drawn.bag;
+      }
 
       // Power meter accrual — instead of banking straight to the inventory,
       // we now embed awarded powerups into random filled cells on the board.
@@ -741,7 +769,10 @@ export const useGimmicksStore = create<State>((set, get) => {
       }
 
       if (cleared.totalLines > 0) {
-        playClearSfx(cleared.totalLines, turnScore.multiplier);
+        playClearSfx(cleared.totalLines, turnScore.multiplier, { perfect });
+        if (combo >= 2 && combo > run.combo) {
+          playComboSfx(combo);
+        }
       }
 
       persistRun(nextRun);
@@ -767,15 +798,34 @@ export const useGimmicksStore = create<State>((set, get) => {
         }, 2200);
       }
 
-      // Deadlock handling — costs a life, auto-shuffles tray.
-      if (!canAnyPieceFitWithObstacles(board, tray, obstacles)) {
+      // Deadlock handling — only trigger on *remaining* pieces. Costs a life
+      // and auto-shuffles the tray with a solvable batch.
+      const remainingNow = tray.some((t) => t !== null);
+      if (
+        remainingNow &&
+        !canAnyPieceFitWithObstacles(
+          board,
+          tray,
+          obstacles,
+          undefined,
+          rotationAllowed,
+        )
+      ) {
         setTimeout(() => {
           const s = get();
           const r = s.run;
           if (!r || r.gameOver) return;
           const pieceSet2 = useSettingsStore.getState().pieceSet;
-          const rng = Math.random;
-          const drew = drawTray(r.bag, pieceSet2, boardDensity(r.board), rng);
+          const rotEff = effectiveRotationEnabled(
+            useSettingsStore.getState().rotation,
+          );
+          const drew = generateSolvableBatch({
+            board: r.board,
+            bag: r.bag.slice(),
+            source: { kind: 'classic', pieceSet: pieceSet2 },
+            rotationAllowed: rotEff,
+            density: boardDensity(r.board),
+          });
           const livesAfter = Math.max(0, r.lives - 1);
           const next: GimmicksRunState = {
             ...r,
@@ -857,8 +907,16 @@ export const useGimmicksStore = create<State>((set, get) => {
         // Shuffle is the only "instant" for now.
         if (id === 'shuffle') {
           const pieceSet2 = useSettingsStore.getState().pieceSet;
-          const rng = Math.random;
-          const drew = drawTray(run.bag, pieceSet2, boardDensity(run.board), rng);
+          const rotEff = effectiveRotationEnabled(
+            useSettingsStore.getState().rotation,
+          );
+          const drew = generateSolvableBatch({
+            board: run.board,
+            bag: run.bag.slice(),
+            source: { kind: 'classic', pieceSet: pieceSet2 },
+            rotationAllowed: rotEff,
+            density: boardDensity(run.board),
+          });
           const next: GimmicksRunState = {
             ...run,
             tray: drew.tray.map(withId),
