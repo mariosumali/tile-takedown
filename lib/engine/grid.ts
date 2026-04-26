@@ -1,5 +1,5 @@
 import type { BoardState, Piece, PieceColor, PieceShape } from '../types';
-import { pieceCells } from './pieces';
+import { pieceCells, uniqueRotations } from './pieces';
 
 /**
  * Default edge length for Classic/Sandbox boards. Levels mode overrides via
@@ -215,9 +215,14 @@ export function canAnyPieceFit(
   board: BoardState,
   pieces: ReadonlyArray<{ shape: PieceShape } | null | undefined>,
   mask?: BoardMask,
+  rotationAllowed: boolean = true,
 ): boolean {
   for (const p of pieces) {
-    if (p && canShapeFit(board, p.shape, mask)) return true;
+    if (!p) continue;
+    const variants = rotationAllowed ? uniqueRotations(p.shape) : [p.shape];
+    for (const shape of variants) {
+      if (canShapeFit(board, shape, mask)) return true;
+    }
   }
   return false;
 }

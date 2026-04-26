@@ -7,6 +7,7 @@ import type {
 } from '../types';
 import { cloneBoard } from './grid';
 import type { ClearResult } from './grid';
+import { uniqueRotations } from './pieces';
 
 /* ------------------------------------------------------------------------ */
 /* Obstacle keys                                                             */
@@ -146,15 +147,19 @@ export function canAnyPieceFitWithObstacles(
   pieces: ReadonlyArray<{ shape: PieceShape } | null | undefined>,
   obstacles: ObstacleMap,
   mask?: BoardMask,
+  rotationAllowed: boolean = true,
 ): boolean {
   const rows = board.length;
   const cols = board[0]?.length ?? 0;
   for (const p of pieces) {
     if (!p) continue;
-    for (let r = 0; r < rows; r++) {
-      for (let c = 0; c < cols; c++) {
-        if (canPlaceWithObstacles(board, p.shape, r, c, obstacles, mask)) {
-          return true;
+    const variants = rotationAllowed ? uniqueRotations(p.shape) : [p.shape];
+    for (const shape of variants) {
+      for (let r = 0; r < rows; r++) {
+        for (let c = 0; c < cols; c++) {
+          if (canPlaceWithObstacles(board, shape, r, c, obstacles, mask)) {
+            return true;
+          }
         }
       }
     }
