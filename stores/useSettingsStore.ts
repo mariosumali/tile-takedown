@@ -12,9 +12,11 @@ export const DEFAULT_SETTINGS: Settings = {
   rotation: false,
   nextTrayPreview: true,
   tapToSelect: false,
+  instantTrayRefill: false,
   sfxVolume: 0.6,
   ambientVolume: 0,
   haptics: true,
+  cheats: [],
 };
 
 type State = Settings & {
@@ -22,6 +24,9 @@ type State = Settings & {
   set: <K extends keyof Settings>(k: K, v: Settings[K]) => void;
   reset: () => void;
   hydrate: () => void;
+  /** Returns true if the code was newly added; false if unknown or already on. */
+  activateCheat: (code: string) => boolean;
+  deactivateCheat: (code: string) => void;
 };
 
 export const useSettingsStore = create<State>((set, get) => ({
@@ -36,8 +41,7 @@ export const useSettingsStore = create<State>((set, get) => ({
   },
   set: (k, v) => {
     set({ [k]: v } as Partial<State>);
-    const { hydrated, set: _s, reset: _r, hydrate: _h, ...rest } = get();
-    writeJSON(K.settings, rest);
+    persistSettings(get);
     if (k === 'theme' && typeof document !== 'undefined') {
       document.documentElement.setAttribute('data-theme', v as string);
     }
@@ -50,4 +54,38 @@ export const useSettingsStore = create<State>((set, get) => ({
       document.documentElement.removeAttribute('data-world-theme');
     }
   },
+  activateCheat: (code) => {
+    const normalized = code.trim().toUpperCase();
+    if (!normalized) return false;
+    const current = get().cheats;
+    if (current.includes(normalized)) return false;
+    const next = [...current, normalized];
+    set({ cheats: next });
+    persistSettings(get);
+    return true;
+  },
+  deactivateCheat: (code) => {
+    const normalized = code.trim().toUpperCase();
+    const next = get().cheats.filter((c) => c !== normalized);
+    set({ cheats: next });
+    persistSettings(get);
+  },
 }));
+
+function persistSettings(get: () => State): void {
+  const s = get();
+  const settings: Settings = {
+    theme: s.theme,
+    worldTheme: s.worldTheme,
+    pieceSet: s.pieceSet,
+    rotation: s.rotation,
+    nextTrayPreview: s.nextTrayPreview,
+    tapToSelect: s.tapToSelect,
+    instantTrayRefill: s.instantTrayRefill,
+    sfxVolume: s.sfxVolume,
+    ambientVolume: s.ambientVolume,
+    haptics: s.haptics,
+    cheats: s.cheats,
+  };
+  writeJSON(K.settings, settings);
+}

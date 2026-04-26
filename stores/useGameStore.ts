@@ -23,7 +23,11 @@ import {
   placePiece,
 } from '@/lib/engine/grid';
 import { scoreTurn } from '@/lib/engine/scoring';
-import { generateSolvableBatch } from '@/lib/engine/trayGen';
+import {
+  generateSolvableBatch,
+  pickSolvableSlotRefill,
+  promoteOrRegenerateBatch,
+} from '@/lib/engine/trayGen';
 import { pieceSize, rotateShape } from '@/lib/engine/pieces';
 import { K } from '@/lib/storage/keys';
 import { readJSON, writeJSON, remove } from '@/lib/storage/safe';
@@ -318,28 +322,74 @@ export const useGameStore = create<State>((set, get) => {
       const rotationAllowed = effectiveRotationEnabled(
         useSettingsStore.getState().rotation,
       );
+      const instantRefill = useSettingsStore.getState().instantTrayRefill;
       const density = boardDensity(afterClear);
 
-      // Batch-refresh model: vacate this slot and only swap the tray in from
-      // `nextTray` once all three are empty. A fresh solvable batch is then
-      // queued into `nextTray` for the following cycle.
+      // Tray refresh: either drip-feed each slot from `nextTray` the moment
+      // it's vacated (instant mode), or hold until all three are empty and
+      // swap in the whole batch together (default).
       let tray: (TrayPiece | null)[] = run.tray.slice();
       tray[trayIndex] = null;
       let nextTray: TrayPiece[] = run.nextTray;
       let bag: ReadonlyArray<Piece> = run.bag;
 
-      const trayExhausted = tray.every((t) => t === null);
-      if (trayExhausted) {
-        tray = nextTray.slice();
-        const drawn = generateSolvableBatch({
+      const drawBatch = () =>
+        generateSolvableBatch({
           board: afterClear,
           bag: bag.slice(),
           source: { kind: 'classic', pieceSet: pieceSetVariant },
           rotationAllowed,
           density,
         });
-        nextTray = drawn.tray.map(withId);
-        bag = drawn.bag;
+
+      if (instantRefill) {
+        if (nextTray.length === 0) {
+          const drawn = drawBatch();
+          nextTray = drawn.tray.map(withId);
+          bag = drawn.bag;
+        }
+        // The preview was drawn against a stale board; verify it still
+        // composes with the two held pieces and swap it for one that does
+        // if not. Losing should always be the player's mistake.
+        const refill = pickSolvableSlotRefill({
+          board: afterClear,
+          heldTray: tray,
+          slotIndex: trayIndex,
+          preview: nextTray[0],
+          bag: bag.slice(),
+          source: { kind: 'classic', pieceSet: pieceSetVariant },
+          rotationAllowed,
+          density,
+        });
+        tray[trayIndex] = withId(refill.piece);
+        nextTray = nextTray.slice(1);
+        bag = refill.bag;
+        if (nextTray.length === 0) {
+          const drawn = drawBatch();
+          nextTray = drawn.tray.map(withId);
+          bag = drawn.bag;
+        }
+      } else {
+        const trayExhausted = tray.every((t) => t === null);
+        if (trayExhausted) {
+          // Promote the preview against the *actual* current board. If the
+          // preview drawn three placements ago is no longer solvable, throw
+          // it out and mint a fresh solvable batch. That's the fairness
+          // contract: deadlock should only come from player choices.
+          const promoted = promoteOrRegenerateBatch({
+            board: afterClear,
+            preview: nextTray,
+            bag: bag.slice(),
+            source: { kind: 'classic', pieceSet: pieceSetVariant },
+            rotationAllowed,
+            density,
+          });
+          tray = promoted.tray.map(withId);
+          bag = promoted.bag;
+          const drawn = drawBatch();
+          nextTray = drawn.tray.map(withId);
+          bag = drawn.bag;
+        }
       }
 
       const comboPeak = Math.max(run.comboPeak, combo);

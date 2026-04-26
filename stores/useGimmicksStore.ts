@@ -21,7 +21,11 @@ import {
   placePiece,
 } from '@/lib/engine/grid';
 import { scoreTurn } from '@/lib/engine/scoring';
-import { generateSolvableBatch } from '@/lib/engine/trayGen';
+import {
+  generateSolvableBatch,
+  pickSolvableSlotRefill,
+  promoteOrRegenerateBatch,
+} from '@/lib/engine/trayGen';
 import { pieceSize, rotateShape } from '@/lib/engine/pieces';
 import { K } from '@/lib/storage/keys';
 import { readJSON, writeJSON, remove } from '@/lib/storage/safe';
@@ -628,30 +632,76 @@ export const useGimmicksStore = create<State>((set, get) => {
       else if (cleared.totalLines === 3) clears.triple++;
       else if (cleared.totalLines >= 4) clears.quad++;
 
-      // Batch-refresh tray: vacate the slot now, swap in `nextTray` only once
-      // all three slots are empty, then queue a fresh solvable batch.
+      // Tray refresh: drip-feed slots as they vacate (instant mode) or hold
+      // until all three empty, then swap in the prepared `nextTray` batch.
       const pieceSetVariant = useSettingsStore.getState().pieceSet;
       const rotationAllowed = effectiveRotationEnabled(
         useSettingsStore.getState().rotation,
       );
+      const instantRefill = useSettingsStore.getState().instantTrayRefill;
       const density = boardDensity(board);
       let tray: (TrayPiece | null)[] = run.tray.slice();
       tray[trayIndex] = null;
       let nextTray: TrayPiece[] = run.nextTray;
       let bag: ReadonlyArray<Piece> = run.bag;
 
-      const trayExhausted = tray.every((t) => t === null);
-      if (trayExhausted) {
-        tray = nextTray.slice();
-        const drawn = generateSolvableBatch({
+      const drawBatch = () =>
+        generateSolvableBatch({
           board,
           bag: bag.slice(),
           source: { kind: 'classic', pieceSet: pieceSetVariant },
           rotationAllowed,
           density,
         });
-        nextTray = drawn.tray.map(withId);
-        bag = drawn.bag;
+
+      if (instantRefill) {
+        if (nextTray.length === 0) {
+          const drawn = drawBatch();
+          nextTray = drawn.tray.map(withId);
+          bag = drawn.bag;
+        }
+        // The preview piece was drawn against an older board; verify it
+        // still composes with the two held pieces and swap it out if not.
+        // Losing should always be the player's mistake.
+        const refill = pickSolvableSlotRefill({
+          board,
+          heldTray: tray,
+          slotIndex: trayIndex,
+          preview: nextTray[0],
+          bag: bag.slice(),
+          source: { kind: 'classic', pieceSet: pieceSetVariant },
+          rotationAllowed,
+          density,
+        });
+        tray[trayIndex] = withId(refill.piece);
+        nextTray = nextTray.slice(1);
+        bag = refill.bag;
+        if (nextTray.length === 0) {
+          const drawn = drawBatch();
+          nextTray = drawn.tray.map(withId);
+          bag = drawn.bag;
+        }
+      } else {
+        const trayExhausted = tray.every((t) => t === null);
+        if (trayExhausted) {
+          // Promote the preview against the *actual* current board. If the
+          // preview drawn three placements ago is no longer solvable, throw
+          // it out and mint a fresh solvable batch. Deadlock should only
+          // come from player choices.
+          const promoted = promoteOrRegenerateBatch({
+            board,
+            preview: nextTray,
+            bag: bag.slice(),
+            source: { kind: 'classic', pieceSet: pieceSetVariant },
+            rotationAllowed,
+            density,
+          });
+          tray = promoted.tray.map(withId);
+          bag = promoted.bag;
+          const drawn = drawBatch();
+          nextTray = drawn.tray.map(withId);
+          bag = drawn.bag;
+        }
       }
 
       // Power meter accrual — instead of banking straight to the inventory,
