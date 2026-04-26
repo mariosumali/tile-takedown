@@ -9,6 +9,7 @@ import Tray from './Tray';
 import MiniStats from './MiniStats';
 import LevelCompleteCard from './LevelCompleteCard';
 import ClearEffects from './ClearEffects';
+import ComboFx from './ComboFx';
 import PieceShape from '../PieceShape';
 import { useLevelsStore } from '@/stores/useLevelsStore';
 import { useSettingsStore } from '@/stores/useSettingsStore';
@@ -391,7 +392,6 @@ export default function LevelGame({ levelId }: Props) {
         : '';
 
   const comboDisplay = `×${comboMultiplier(combo).toFixed(2)}`;
-  const comboOn = Math.min(4, combo);
 
   const trayHint = tapToSelect
     ? 'tap a piece, then tap the board'
@@ -429,8 +429,7 @@ export default function LevelGame({ levelId }: Props) {
             variant="combo"
             label="combo"
             value={comboDisplay}
-            comboOn={comboOn}
-            comboTotal={4}
+            combo={combo}
           />
         </div>
 
@@ -555,6 +554,7 @@ export default function LevelGame({ levelId }: Props) {
         boardWrapRef={boardWrapRef}
         mask={mask}
       />
+      <ComboFx combo={combo} clearingBoard={clearingBoard} />
 
       {finishedStars !== null && (
         <LevelCompleteCard

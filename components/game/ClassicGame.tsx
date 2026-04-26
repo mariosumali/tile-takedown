@@ -12,6 +12,7 @@ import MiniStats from './MiniStats';
 import AchievementToast from './AchievementToast';
 import GameOverCard from './GameOverCard';
 import ClearEffects from './ClearEffects';
+import ComboFx from './ComboFx';
 import PieceShape from '../PieceShape';
 import { useGameStore } from '@/stores/useGameStore';
 import { useSettingsStore } from '@/stores/useSettingsStore';
@@ -501,7 +502,6 @@ export default function ClassicGame() {
   ];
 
   const comboDisplay = `×${comboMultiplier(run.combo).toFixed(2)}`;
-  const comboOn = Math.min(4, run.combo);
 
   const runDurationMs =
     new Date(run.lastAt).getTime() - new Date(run.startedAt).getTime();
@@ -544,8 +544,7 @@ export default function ClassicGame() {
             variant="combo"
             label="combo"
             value={comboDisplay}
-            comboOn={comboOn}
-            comboTotal={4}
+            combo={run.combo}
           />
         </div>
 
@@ -658,6 +657,7 @@ export default function ClassicGame() {
         combo={run.combo}
         boardWrapRef={trayWrapRef}
       />
+      <ComboFx combo={run.combo} clearingBoard={clearingBoard} />
 
       {run.gameOver && (
         <GameOverCard

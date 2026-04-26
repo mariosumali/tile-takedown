@@ -3,7 +3,7 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import type { BoardState } from '@/lib/types';
 import { boardIsEmpty } from '@/lib/engine/grid';
-import { comboMultiplier } from '@/lib/engine/scoring';
+import { comboMultiplier, comboTier, type ComboTier } from '@/lib/engine/scoring';
 
 /**
  * Renders big-moment feedback on top of a clearing board: a short screen
@@ -83,10 +83,11 @@ export default function ClearEffects({
     if (!event) return;
     const el = boardWrapRef.current;
     if (!el) return;
+    const tier = comboTier(event.combo);
     const cls =
-      event.perfect || event.lines >= 4
+      event.perfect || event.lines >= 4 || tier === 'inferno'
         ? 'board-shake board-shake-strong'
-        : event.lines >= 3
+        : event.lines >= 3 || tier === 'fire'
           ? 'board-shake'
           : null;
     if (!cls) return;
@@ -103,22 +104,51 @@ export default function ClearEffects({
   const confettiPieces = useMemo(() => {
     if (!event) return [] as ConfettiPiece[];
     const heavy = event.perfect || event.lines >= 4;
-    const count = event.perfect ? 40 : heavy ? 28 : event.lines >= 3 ? 14 : 0;
+    const tier = comboTier(event.combo);
+    const tierBonus =
+      event.lines < 3 && tier === 'inferno' ? 22 : event.lines < 3 && tier === 'fire' ? 10 : 0;
+    const count =
+      (event.perfect ? 40 : heavy ? 28 : event.lines >= 3 ? 14 : 0) + tierBonus;
     if (count === 0) return [] as ConfettiPiece[];
-    return buildConfetti(count, event.perfect);
+    return buildConfetti(count, event.perfect || tier === 'inferno');
   }, [event]);
 
   if (!event) return null;
 
   const { lines, perfect } = event;
-  const banner = perfect
+  // Combo tier promotes soft clears into something worth celebrating:
+  // fire (>=6) bumps us to at least "triple" styling with a COMBO banner,
+  // inferno (>=8) pushes to "quad" with an INFERNO banner.
+  const tier: ComboTier = comboTier(event.combo);
+  const baseBanner = perfect
     ? 'perfect!'
     : lines >= 4
       ? 'quad!'
       : lines >= 3
         ? 'triple!'
         : null;
-  const intensity = perfect ? 'perfect' : lines >= 4 ? 'quad' : lines >= 3 ? 'triple' : 'soft';
+  const banner =
+    baseBanner ??
+    (tier === 'inferno'
+      ? `inferno ×${event.combo}`
+      : tier === 'fire'
+        ? `combo ×${event.combo}`
+        : null);
+  const baseIntensity: 'perfect' | 'quad' | 'triple' | 'soft' = perfect
+    ? 'perfect'
+    : lines >= 4
+      ? 'quad'
+      : lines >= 3
+        ? 'triple'
+        : 'soft';
+  const intensity =
+    baseIntensity !== 'soft'
+      ? baseIntensity
+      : tier === 'inferno'
+        ? 'quad'
+        : tier === 'fire'
+          ? 'triple'
+          : 'soft';
 
   return (
     <div className="clear-fx" aria-hidden="true" key={event.id}>
@@ -127,10 +157,18 @@ export default function ClearEffects({
         <div className={`clear-fx-shockwave clear-fx-shockwave-${intensity}`} />
       )}
       {banner && (
-        <div className={`clear-fx-banner clear-fx-banner-${intensity}`}>
+        <div
+          className={`clear-fx-banner clear-fx-banner-${intensity}${
+            tier === 'inferno'
+              ? ' clear-fx-banner-inferno'
+              : tier === 'fire'
+                ? ' clear-fx-banner-fire'
+                : ''
+          }`}
+        >
           <span>{banner}</span>
-          {perfect && event.combo > 0 && (
-            <small>combo ×{comboMultiplier(event.combo).toFixed(2)}</small>
+          {(perfect || tier === 'fire' || tier === 'inferno') && event.combo > 0 && (
+            <small>×{comboMultiplier(event.combo).toFixed(2)}</small>
           )}
         </div>
       )}

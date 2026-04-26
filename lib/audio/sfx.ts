@@ -339,6 +339,43 @@ export function playComboSfx(comboCount: number): void {
     osc.start(at);
     osc.stop(at + 0.2);
   }
+
+  // Fire tier (>=6): stack a low sub-bass rumble underneath the chime so it
+  // reads as a serious heat-up rather than "yet another ding".
+  if (comboCount >= 6) {
+    const rumble = c.createOscillator();
+    const rg = c.createGain();
+    rumble.type = 'sawtooth';
+    rumble.frequency.setValueAtTime(70, t0);
+    rumble.frequency.exponentialRampToValueAtTime(45, t0 + 0.35);
+    const rumbleGain = Math.max(0.0001, master * 0.9);
+    rg.gain.setValueAtTime(0.0001, t0);
+    rg.gain.exponentialRampToValueAtTime(rumbleGain, t0 + 0.04);
+    rg.gain.exponentialRampToValueAtTime(0.0001, t0 + 0.5);
+    rumble.connect(rg);
+    rg.connect(c.destination);
+    rumble.start(t0);
+    rumble.stop(t0 + 0.55);
+  }
+
+  // Inferno tier (>=8): add a short bright "crack" on top — a fast-decaying
+  // high square burst that mimics a lightning strike.
+  if (comboCount >= 8) {
+    const crackAt = t0 + 0.02;
+    const osc = c.createOscillator();
+    const g = c.createGain();
+    osc.type = 'square';
+    osc.frequency.setValueAtTime(2600, crackAt);
+    osc.frequency.exponentialRampToValueAtTime(900, crackAt + 0.12);
+    const crackGain = Math.max(0.0001, master * 0.65);
+    g.gain.setValueAtTime(0.0001, crackAt);
+    g.gain.exponentialRampToValueAtTime(crackGain, crackAt + 0.004);
+    g.gain.exponentialRampToValueAtTime(0.0001, crackAt + 0.2);
+    osc.connect(g);
+    g.connect(c.destination);
+    osc.start(crackAt);
+    osc.stop(crackAt + 0.22);
+  }
 }
 
 export function vibrate(pattern: number | number[], enabled: boolean): void {

@@ -1127,15 +1127,28 @@ button {
 .card.combo {
   background: var(--mustard);
   transform: rotate(-0.3deg);
+  position: relative;
+  overflow: hidden;
+  transition: transform 0.18s ease, box-shadow 0.24s ease, background 0.3s ease;
 }
 .card.combo .big {
   color: var(--tomato);
   font-size: 62px;
+  position: relative;
+  z-index: 2;
+  transition: text-shadow 0.2s ease, color 0.3s ease;
+}
+.card.combo .eyebrow,
+.card.combo .sub {
+  position: relative;
+  z-index: 2;
 }
 .combo-bars {
   display: flex;
-  gap: 6px;
+  gap: 4px;
   margin-top: 14px;
+  position: relative;
+  z-index: 2;
 }
 .combo-bars span {
   flex: 1;
@@ -1143,9 +1156,222 @@ button {
   background: var(--paper);
   border: 2px solid var(--ink);
   border-radius: 4px;
+  transition: background 0.2s ease, box-shadow 0.2s ease, transform 0.2s ease;
 }
-.combo-bars span.on {
+.combo-bars span.on[data-tier='spark'] {
+  background: var(--mustard);
+}
+.combo-bars span.on[data-tier='hot'] {
+  background: #f0893a;
+  box-shadow: 0 0 6px rgba(240, 137, 58, 0.6);
+}
+.combo-bars span.on[data-tier='fire'] {
   background: var(--tomato);
+  box-shadow: 0 0 10px rgba(232, 90, 79, 0.85);
+}
+.combo-bars span.on[data-tier='inferno'] {
+  background: #fff3b0;
+  border-color: var(--tomato);
+  box-shadow:
+    0 0 12px #ffd27a,
+    0 0 22px var(--tomato);
+}
+
+/* Tier label (HOT / FIRE / INFERNO) beneath the multiplier */
+.combo-tier-label {
+  position: relative;
+  z-index: 2;
+  margin-top: 8px;
+  font-family: var(--font-display, inherit);
+  font-weight: 800;
+  font-size: 11px;
+  letter-spacing: 2.5px;
+  text-align: center;
+  color: var(--ink);
+  padding: 3px 8px;
+  border: 2px solid var(--ink);
+  border-radius: var(--r-sm);
+  background: var(--paper);
+  align-self: center;
+  width: fit-content;
+  display: inline-block;
+}
+
+/* ---------- Combo tiers ---------- */
+
+/* Spark (2-3): subtle shimmer across the card */
+.card.combo[data-combo-tier='spark']::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(
+    110deg,
+    transparent 35%,
+    rgba(255, 255, 255, 0.35) 50%,
+    transparent 65%
+  );
+  background-size: 250% 100%;
+  animation: comboShimmer 2.6s linear infinite;
+  pointer-events: none;
+  z-index: 1;
+}
+
+/* Hot (4-5): amber glow pulse */
+.card.combo[data-combo-tier='hot'] {
+  background: linear-gradient(135deg, var(--mustard) 0%, #f0893a 100%);
+  box-shadow: var(--shadow), 0 0 18px rgba(240, 137, 58, 0.55);
+  animation: comboHotPulse 1.2s ease-in-out infinite;
+}
+.card.combo[data-combo-tier='hot'] .big {
+  text-shadow: 0 0 8px rgba(240, 137, 58, 0.75);
+}
+.card.combo[data-combo-tier='hot'] .combo-tier-label {
+  background: #f0893a;
+  color: var(--paper);
+}
+
+/* Fire (6-7): flame tongues along the top edge + stronger aura */
+.card.combo[data-combo-tier='fire'] {
+  background: linear-gradient(160deg, #f0893a 0%, var(--tomato) 100%);
+  box-shadow: var(--shadow), 0 0 24px rgba(232, 90, 79, 0.75);
+  animation: comboFirePulse 0.8s ease-in-out infinite;
+}
+.card.combo[data-combo-tier='fire'] .big {
+  color: #fff3b0;
+  text-shadow:
+    0 0 8px #ffd27a,
+    0 0 16px var(--tomato);
+}
+.card.combo[data-combo-tier='fire']::before {
+  content: '';
+  position: absolute;
+  inset: -8px -6px auto -6px;
+  height: 28px;
+  background:
+    radial-gradient(ellipse at 20% 100%, #fff3b0 0%, transparent 55%),
+    radial-gradient(ellipse at 55% 100%, #f0893a 0%, transparent 60%),
+    radial-gradient(ellipse at 85% 100%, var(--tomato) 0%, transparent 55%);
+  filter: blur(3px);
+  transform-origin: bottom center;
+  animation: comboFlameFlicker 0.35s ease-in-out infinite alternate;
+  pointer-events: none;
+  z-index: 1;
+}
+.card.combo[data-combo-tier='fire'] .combo-tier-label {
+  background: var(--tomato);
+  color: #fff3b0;
+  border-color: #fff3b0;
+}
+
+/* Inferno (8+): color-cycling background, ember particles, continuous shake */
+.card.combo[data-combo-tier='inferno'] {
+  background: linear-gradient(160deg, var(--tomato) 0%, #b92d22 55%, #ff9a33 100%);
+  background-size: 200% 200%;
+  box-shadow:
+    var(--shadow),
+    0 0 28px rgba(255, 210, 122, 0.9),
+    0 0 52px rgba(232, 90, 79, 0.75);
+  animation:
+    comboInfernoShake 0.18s ease-in-out infinite,
+    comboInfernoCycle 2.2s ease-in-out infinite;
+}
+.card.combo[data-combo-tier='inferno'] .big {
+  color: #fff8dc;
+  text-shadow:
+    0 0 6px #fff3b0,
+    0 0 14px #ffd27a,
+    0 0 28px var(--tomato);
+}
+.card.combo[data-combo-tier='inferno']::before {
+  content: '';
+  position: absolute;
+  inset: -12px -8px auto -8px;
+  height: 36px;
+  background:
+    radial-gradient(ellipse at 15% 100%, #fff3b0 0%, transparent 55%),
+    radial-gradient(ellipse at 45% 100%, #ffd27a 0%, transparent 60%),
+    radial-gradient(ellipse at 75% 100%, var(--tomato) 0%, transparent 60%),
+    radial-gradient(ellipse at 95% 100%, #fff3b0 0%, transparent 55%);
+  filter: blur(4px);
+  animation: comboFlameFlicker 0.22s ease-in-out infinite alternate;
+  pointer-events: none;
+  z-index: 1;
+}
+.card.combo[data-combo-tier='inferno']::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background:
+    radial-gradient(circle 2px at 12% 80%, #fff3b0 0%, transparent 100%),
+    radial-gradient(circle 1px at 32% 55%, #ffd27a 0%, transparent 100%),
+    radial-gradient(circle 1.5px at 68% 30%, #fff3b0 0%, transparent 100%),
+    radial-gradient(circle 2px at 88% 70%, #ffd27a 0%, transparent 100%),
+    radial-gradient(circle 1px at 50% 15%, #fff 0%, transparent 100%);
+  animation: comboEmbersDrift 1.6s linear infinite;
+  pointer-events: none;
+  z-index: 1;
+  opacity: 0.9;
+}
+.card.combo[data-combo-tier='inferno'] .combo-tier-label {
+  background: #fff3b0;
+  color: var(--tomato);
+  border-color: var(--tomato);
+  box-shadow: 0 0 12px rgba(255, 210, 122, 0.8);
+}
+
+/* Keyframes */
+@keyframes comboShimmer {
+  0% { background-position: 200% 0; }
+  100% { background-position: -100% 0; }
+}
+@keyframes comboHotPulse {
+  0%, 100% { box-shadow: var(--shadow), 0 0 14px rgba(240, 137, 58, 0.45); }
+  50% { box-shadow: var(--shadow), 0 0 22px rgba(240, 137, 58, 0.85); }
+}
+@keyframes comboFirePulse {
+  0%, 100% {
+    box-shadow: var(--shadow), 0 0 18px rgba(232, 90, 79, 0.55);
+    transform: rotate(-0.3deg) scale(1);
+  }
+  50% {
+    box-shadow: var(--shadow), 0 0 32px rgba(232, 90, 79, 0.95);
+    transform: rotate(-0.3deg) scale(1.015);
+  }
+}
+@keyframes comboFlameFlicker {
+  0% { transform: scaleY(0.9) translateY(0); opacity: 0.85; }
+  50% { transform: scaleY(1.15) translateY(-2px); opacity: 1; }
+  100% { transform: scaleY(0.95) translateY(-1px); opacity: 0.9; }
+}
+@keyframes comboInfernoShake {
+  0%, 100% { transform: rotate(-0.3deg) translate(0, 0); }
+  25% { transform: rotate(-0.5deg) translate(-1px, 1px); }
+  50% { transform: rotate(-0.1deg) translate(1px, -1px); }
+  75% { transform: rotate(-0.4deg) translate(-1px, -1px); }
+}
+@keyframes comboInfernoCycle {
+  0%, 100% { background-position: 0% 50%; }
+  50% { background-position: 100% 50%; }
+}
+@keyframes comboEmbersDrift {
+  0% { transform: translateY(0); opacity: 0.9; }
+  50% { transform: translateY(-10px); opacity: 1; }
+  100% { transform: translateY(-18px); opacity: 0; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .card.combo,
+  .card.combo[data-combo-tier='hot'],
+  .card.combo[data-combo-tier='fire'],
+  .card.combo[data-combo-tier='inferno'] {
+    animation: none !important;
+  }
+  .card.combo[data-combo-tier='spark']::before,
+  .card.combo[data-combo-tier='fire']::before,
+  .card.combo[data-combo-tier='inferno']::before,
+  .card.combo[data-combo-tier='inferno']::after {
+    animation: none !important;
+  }
 }
 
 /* ---------- Game board ---------- */
@@ -2655,6 +2881,177 @@ button {
   color: var(--ink-2);
 }
 
+/* ---------- Cheat codes ---------- */
+.cheat-entry {
+  display: grid;
+  grid-template-columns: 1fr auto;
+  gap: 10px;
+  align-items: center;
+}
+.cheat-input {
+  padding: 12px 14px;
+  background: var(--paper-2);
+  border: 2px solid var(--ink);
+  border-radius: var(--r-md);
+  font-family: inherit;
+  font-size: 15px;
+  color: var(--ink);
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  box-shadow: var(--shadow-sm);
+  outline: none;
+  transition: transform 140ms, box-shadow 140ms;
+}
+.cheat-input::placeholder {
+  color: var(--ink-3);
+  letter-spacing: 0.04em;
+  text-transform: none;
+}
+.cheat-input:focus {
+  transform: translate(-1px, -1px);
+  box-shadow: var(--shadow);
+}
+.cheat-activate { white-space: nowrap; }
+.cheat-activate:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+  transform: none;
+  box-shadow: var(--shadow-sm);
+}
+.cheat-feedback {
+  grid-column: 1 / -1;
+  font-size: 13px;
+  color: var(--ink-3);
+  padding-top: 2px;
+}
+.cheat-feedback-ok { color: var(--olive); font-variation-settings: 'wght' 600; }
+.cheat-feedback-bad { color: var(--tomato); font-variation-settings: 'wght' 600; }
+.cheat-feedback-already { color: var(--ink-2); }
+
+.cheat-list {
+  margin-top: 14px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+.cheat-chip {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 12px 16px;
+  background: var(--paper-2);
+  border: 2px solid var(--ink);
+  border-radius: var(--r-lg);
+  box-shadow: var(--shadow-sm);
+}
+.cheat-chip-body { flex: 1; min-width: 0; }
+.cheat-chip-code {
+  font-family: var(--font-display), 'Caprasimo', serif;
+  font-size: 18px;
+  letter-spacing: 0.08em;
+}
+.cheat-chip-desc {
+  color: var(--ink-3);
+  font-size: 13px;
+  margin-top: 2px;
+}
+.cheat-chip-off {
+  padding: 6px 12px;
+  background: var(--paper);
+  border: 2px solid var(--ink);
+  border-radius: var(--r-pill);
+  color: var(--ink);
+  font: inherit;
+  font-size: 13px;
+  text-transform: lowercase;
+  cursor: pointer;
+  box-shadow: var(--shadow-sm);
+  transition: transform 120ms;
+}
+.cheat-chip-off:hover {
+  transform: translate(-1px, -1px);
+  background: var(--tomato);
+  color: var(--paper);
+}
+
+/* ---------- Debug terminal (unlocked via TERMINAL cheat) ---------- */
+.dbg-term {
+  position: fixed;
+  right: 16px;
+  bottom: 16px;
+  width: min(420px, calc(100vw - 24px));
+  max-height: min(60vh, 520px);
+  display: flex;
+  flex-direction: column;
+  background: #0c0c0c;
+  color: #d8ffcf;
+  border: 2px solid var(--ink);
+  border-radius: var(--r-md);
+  box-shadow: var(--shadow-lg);
+  z-index: 200;
+  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  font-size: 12.5px;
+  overflow: hidden;
+}
+.dbg-term.closed {
+  max-height: none;
+  width: auto;
+}
+.dbg-term-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  padding: 8px 12px;
+  background: #111;
+  color: #d8ffcf;
+  border: none;
+  border-bottom: 2px solid var(--ink);
+  cursor: pointer;
+  font: inherit;
+  font-size: 12px;
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+}
+.dbg-term.closed .dbg-term-head { border-bottom: none; }
+.dbg-term-title { font-variation-settings: 'wght' 700; }
+.dbg-term-chev { opacity: 0.7; }
+
+.dbg-term-output {
+  flex: 1;
+  min-height: 120px;
+  padding: 10px 12px;
+  overflow-y: auto;
+  white-space: pre-wrap;
+  word-break: break-word;
+  line-height: 1.5;
+  background: #0c0c0c;
+}
+.dbg-term-line { }
+.dbg-term-cmd { color: #9eead3; }
+.dbg-term-out { color: #d8ffcf; opacity: 0.92; }
+.dbg-term-err { color: #ff8a7a; }
+
+.dbg-term-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 12px;
+  background: #0a0a0a;
+  border-top: 2px solid var(--ink);
+}
+.dbg-term-prompt { color: #5bd98a; opacity: 0.9; }
+.dbg-term-input {
+  flex: 1;
+  background: transparent;
+  border: none;
+  outline: none;
+  color: #eaffe0;
+  font: inherit;
+  padding: 4px 2px;
+}
+.dbg-term-input::placeholder { color: #5a6a58; }
+
 @media (max-width: 1024px) {
   .stats-grid { grid-template-columns: repeat(3, 1fr); }
   .ach-grid { grid-template-columns: repeat(2, 1fr); }
@@ -2815,6 +3212,26 @@ button {
     0 6px 0 rgba(0, 0, 0, 0.3),
     0 0 40px rgba(255, 210, 90, 0.9);
 }
+/* Combo-tier banner overrides. Applied on top of the base intensity class. */
+.clear-fx-banner-fire {
+  color: var(--tomato);
+  -webkit-text-stroke: 3px #fff3b0;
+  text-shadow:
+    0 6px 0 rgba(0, 0, 0, 0.3),
+    0 0 22px rgba(232, 90, 79, 0.9),
+    0 0 40px #f0893a;
+}
+.clear-fx-banner-inferno {
+  color: #fff3b0;
+  font-size: clamp(64px, 13vw, 160px);
+  -webkit-text-stroke: 3px var(--tomato);
+  animation-duration: 1100ms;
+  text-shadow:
+    0 6px 0 rgba(0, 0, 0, 0.35),
+    0 0 22px #ffd27a,
+    0 0 48px var(--tomato),
+    0 0 80px #b92d22;
+}
 @keyframes clear-fx-banner-pop {
   0% {
     opacity: 0;
@@ -2894,6 +3311,95 @@ button {
   60% { transform: translate(6px, -4px) rotate(0.5deg); }
   75% { transform: translate(-4px, 2px) rotate(-0.3deg); }
   90% { transform: translate(2px, -1px) rotate(0.1deg); }
+}
+
+/* ============================================================
+   Combo VFX overlay — ambient screen-edge fire and lightning at
+   high combo tiers. Owned by components/game/ComboFx.tsx.
+   ============================================================ */
+
+.combo-fx {
+  position: fixed;
+  inset: 0;
+  pointer-events: none;
+  z-index: 85;
+  overflow: hidden;
+}
+
+/* Screen-edge flame frame. The frame is drawn via box-shadow inset so it hugs
+   the whole viewport without adding DOM. Radial gradients paint the flame
+   tongues at the bottom and flicker via CSS animation. */
+.combo-fx-frame {
+  position: absolute;
+  inset: 0;
+  background:
+    radial-gradient(ellipse 60% 14% at 10% 100%, rgba(240, 137, 58, 0.55) 0%, transparent 70%),
+    radial-gradient(ellipse 70% 16% at 50% 100%, rgba(232, 90, 79, 0.55) 0%, transparent 70%),
+    radial-gradient(ellipse 60% 14% at 90% 100%, rgba(240, 137, 58, 0.55) 0%, transparent 70%),
+    radial-gradient(ellipse 60% 10% at 50% 0%, rgba(240, 137, 58, 0.25) 0%, transparent 70%);
+  filter: blur(6px);
+  animation: combo-fx-flicker 0.35s ease-in-out infinite alternate;
+  opacity: 0.9;
+}
+
+.combo-fx-fire .combo-fx-frame {
+  box-shadow: inset 0 -80px 120px -40px rgba(232, 90, 79, 0.55);
+}
+
+.combo-fx-inferno .combo-fx-frame {
+  background:
+    radial-gradient(ellipse 60% 18% at 10% 100%, rgba(255, 210, 122, 0.75) 0%, transparent 70%),
+    radial-gradient(ellipse 80% 20% at 50% 100%, var(--tomato) 0%, transparent 70%),
+    radial-gradient(ellipse 60% 18% at 90% 100%, rgba(255, 210, 122, 0.75) 0%, transparent 70%),
+    radial-gradient(ellipse 60% 14% at 10% 0%, rgba(232, 90, 79, 0.55) 0%, transparent 70%),
+    radial-gradient(ellipse 60% 14% at 90% 0%, rgba(232, 90, 79, 0.55) 0%, transparent 70%),
+    radial-gradient(ellipse 14% 60% at 0% 50%, rgba(240, 137, 58, 0.45) 0%, transparent 70%),
+    radial-gradient(ellipse 14% 60% at 100% 50%, rgba(240, 137, 58, 0.45) 0%, transparent 70%);
+  box-shadow: inset 0 -100px 160px -30px rgba(232, 90, 79, 0.75),
+    inset 0 0 180px rgba(232, 90, 79, 0.35);
+  animation-duration: 0.22s;
+  opacity: 1;
+}
+
+/* Lightning streak: centered SVG that whips once then fades. */
+.combo-fx-lightning {
+  position: absolute;
+  inset: 0;
+  color: #fff8dc;
+  filter: drop-shadow(0 0 10px #fff3b0) drop-shadow(0 0 24px var(--tomato));
+  animation: combo-fx-lightning 520ms ease-out forwards;
+}
+.combo-fx-lightning svg {
+  position: absolute;
+  top: 0;
+  left: 50%;
+  transform: translateX(-50%);
+  width: 10vw;
+  min-width: 60px;
+  height: 100vh;
+  opacity: 0;
+  animation: combo-fx-lightning-svg 520ms ease-out forwards;
+}
+
+@keyframes combo-fx-flicker {
+  0% { opacity: 0.75; transform: translateY(0) scaleY(0.96); }
+  50% { opacity: 1; transform: translateY(-3px) scaleY(1.04); }
+  100% { opacity: 0.85; transform: translateY(-1px) scaleY(0.98); }
+}
+
+@keyframes combo-fx-lightning {
+  0% { background: rgba(255, 248, 220, 0); }
+  10% { background: rgba(255, 248, 220, 0.35); }
+  18% { background: rgba(255, 248, 220, 0); }
+  28% { background: rgba(255, 248, 220, 0.18); }
+  100% { background: rgba(255, 248, 220, 0); }
+}
+
+@keyframes combo-fx-lightning-svg {
+  0% { opacity: 0; transform: translateX(-50%) scaleX(0.6); }
+  12% { opacity: 1; transform: translateX(-50%) scaleX(1); }
+  40% { opacity: 0.6; transform: translateX(-50%) scaleX(0.9); }
+  100% { opacity: 0; transform: translateX(-50%) scaleX(1); }
 }
 
 /* ---------- Reduced motion ---------- */

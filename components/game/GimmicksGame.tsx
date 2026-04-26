@@ -11,6 +11,7 @@ import PieceShape from '../PieceShape';
 import PowerupTray from './PowerupTray';
 import LivesPips from './LivesPips';
 import ClearEffects from './ClearEffects';
+import ComboFx from './ComboFx';
 import { useGimmicksStore } from '@/stores/useGimmicksStore';
 import { useSettingsStore } from '@/stores/useSettingsStore';
 import { boardDensity, placePiece } from '@/lib/engine/grid';
@@ -411,7 +412,6 @@ export default function GimmicksGame() {
       : '';
 
   const comboDisplay = `×${comboMultiplier(run.combo).toFixed(2)}`;
-  const comboOn = Math.min(4, run.combo);
 
   const totalClears =
     run.clears.single + run.clears.double + run.clears.triple + run.clears.quad;
@@ -486,8 +486,7 @@ export default function GimmicksGame() {
             variant="combo"
             label="combo"
             value={comboDisplay}
-            comboOn={comboOn}
-            comboTotal={4}
+            combo={run.combo}
           />
         </div>
 
@@ -575,6 +574,7 @@ export default function GimmicksGame() {
         combo={run.combo}
         boardWrapRef={boardWrapRef}
       />
+      <ComboFx combo={run.combo} clearingBoard={clearingBoard} />
 
       {isDragging && activePiece && (
         <div
