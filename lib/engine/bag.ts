@@ -1,26 +1,56 @@
 import type { Piece, PieceColor, PieceSet } from '../types';
-import { PIECE_COLORS, PIECE_DEFS, type PieceDef } from './pieces';
+import { PIECE_COLORS, PIECE_DEFS, shapeCompactness, type PieceDef } from './pieces';
 
 const BAG_SIZE = 60;
 
-/** Weighted choice from defs according to size and density bias. */
+/**
+ * Weighted choice from defs according to size, density bias, and how
+ * "awkward" the shape is.
+ *
+ * The size tier sets the base rate, then a compactness multiplier knocks
+ * sprawling shapes further down — this is how the smart tray keeps
+ * hexominoes like irregular "S with a tail" variants rare while still
+ * letting the tidy ones (I6, O-blocks, rectangles) surface sometimes.
+ */
 function weightFor(def: PieceDef, density: number): number {
   // Favor small pieces early; as density climbs past 40%, weight big pieces up.
   const bias = Math.max(0, density - 0.4); // 0..0.6
+  let base: number;
   switch (def.size) {
     case 1:
-      return 2.0 - bias * 1.5;
+      base = 2.0 - bias * 1.5;
+      break;
     case 2:
-      return 3.0 - bias * 1.0;
+      base = 3.0 - bias * 1.0;
+      break;
     case 3:
-      return 3.5 - bias * 0.5;
+      base = 3.5 - bias * 0.5;
+      break;
     case 4:
-      return 2.5 + bias * 0.8;
+      base = 2.5 + bias * 0.8;
+      break;
     case 5:
-      return 1.5 + bias * 1.5;
+      base = 1.5 + bias * 1.5;
+      break;
+    case 6:
+      // Hexominoes are the deepest "chaos" tier. Base rate is intentionally
+      // well under pentominoes, and the compactness penalty below culls the
+      // most sprawling variants so only the tidier hexes show up regularly.
+      base = 0.2 + bias * 0.7;
+      break;
     default:
-      return 1;
+      base = 1;
   }
+
+  // Hexomino-only compactness penalty — pentominoes and smaller are common
+  // shapes the player is expected to handle, but sprawling 6-cell variants
+  // (the "crazy" pieces) should be the rarest thing in the bag.
+  if (def.size === 6) {
+    const c = shapeCompactness(def.shape);
+    base *= Math.pow(c, 2.2);
+  }
+
+  return base;
 }
 
 function filterDefs(variant: PieceSet): ReadonlyArray<PieceDef> {
@@ -28,7 +58,9 @@ function filterDefs(variant: PieceSet): ReadonlyArray<PieceDef> {
     case 'tetro_only':
       return PIECE_DEFS.filter((d) => d.size === 4);
     case 'pentomino_chaos':
-      return PIECE_DEFS.filter((d) => d.size >= 4);
+      // Historically `size >= 4`; hexominoes would otherwise flood this
+      // variant. Keep it 4+5 so the "chaos" stays within the original spirit.
+      return PIECE_DEFS.filter((d) => d.size === 4 || d.size === 5);
     case 'small_only':
       return PIECE_DEFS.filter((d) => d.size <= 3);
     case 'classic':
