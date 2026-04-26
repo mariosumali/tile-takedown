@@ -2667,6 +2667,235 @@ button {
   .run-row { grid-template-columns: 1fr; gap: 6px; }
 }
 
+/* ============================================================
+   Big-clear FX — screen flash, shockwave, confetti, banner, shake.
+   Owned by components/game/ClearEffects.tsx. Keep pure CSS so the
+   global prefers-reduced-motion rule below disables them automatically.
+   ============================================================ */
+
+.clear-fx {
+  position: fixed;
+  inset: 0;
+  pointer-events: none;
+  z-index: 90;
+  overflow: hidden;
+}
+
+/* Screen flash. Four intensity tiers picked up by ClearEffects.tsx. */
+.clear-fx-flash {
+  position: absolute;
+  inset: 0;
+  opacity: 0;
+  mix-blend-mode: screen;
+  animation: clear-fx-flash 520ms ease-out forwards;
+}
+.clear-fx-flash-soft {
+  background: radial-gradient(
+    ellipse at center,
+    rgba(255, 245, 220, 0.55) 0%,
+    rgba(255, 245, 220, 0) 60%
+  );
+  animation-duration: 420ms;
+}
+.clear-fx-flash-triple {
+  background: radial-gradient(
+    ellipse at center,
+    rgba(255, 240, 200, 0.8) 0%,
+    rgba(255, 225, 180, 0.3) 40%,
+    rgba(255, 225, 180, 0) 75%
+  );
+  animation-duration: 520ms;
+}
+.clear-fx-flash-quad {
+  background: radial-gradient(
+    ellipse at center,
+    rgba(255, 240, 190, 1) 0%,
+    rgba(255, 205, 120, 0.55) 35%,
+    rgba(255, 205, 120, 0) 80%
+  );
+  animation-duration: 640ms;
+}
+.clear-fx-flash-perfect {
+  background: radial-gradient(
+    ellipse at center,
+    rgba(255, 255, 230, 1) 0%,
+    rgba(255, 225, 140, 0.75) 30%,
+    rgba(255, 180, 90, 0.35) 60%,
+    rgba(255, 180, 90, 0) 85%
+  );
+  animation-duration: 760ms;
+}
+@keyframes clear-fx-flash {
+  0% { opacity: 0; }
+  12% { opacity: 1; }
+  100% { opacity: 0; }
+}
+
+/* Radial shockwave ring bursting from the screen center. */
+.clear-fx-shockwave {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  width: 40px;
+  height: 40px;
+  border-radius: 50%;
+  border: 4px solid var(--ink);
+  transform: translate(-50%, -50%) scale(0.2);
+  opacity: 0.9;
+  animation: clear-fx-shock 640ms cubic-bezier(0.2, 0.8, 0.2, 1) forwards;
+}
+.clear-fx-shockwave-triple { border-color: var(--olive); border-width: 5px; }
+.clear-fx-shockwave-quad {
+  border-color: var(--tomato);
+  border-width: 7px;
+  animation-duration: 760ms;
+}
+.clear-fx-shockwave-perfect {
+  border-color: var(--mustard);
+  border-width: 8px;
+  animation-duration: 880ms;
+  box-shadow: 0 0 0 3px var(--ink);
+}
+@keyframes clear-fx-shock {
+  0% {
+    transform: translate(-50%, -50%) scale(0.2);
+    opacity: 0.9;
+  }
+  60% { opacity: 0.65; }
+  100% {
+    transform: translate(-50%, -50%) scale(28);
+    opacity: 0;
+  }
+}
+
+/* Banner text (triple! / quad! / perfect!). */
+.clear-fx-banner {
+  position: absolute;
+  top: 38%;
+  left: 50%;
+  transform: translate(-50%, -50%) scale(0.6) rotate(-4deg);
+  font-family: var(--font-display, inherit);
+  font-weight: 900;
+  font-size: clamp(48px, 10vw, 120px);
+  text-transform: lowercase;
+  letter-spacing: -0.04em;
+  color: var(--ink);
+  -webkit-text-stroke: 3px var(--cream, #fff);
+  text-shadow:
+    0 6px 0 rgba(0, 0, 0, 0.25),
+    0 0 24px rgba(255, 220, 120, 0.6);
+  opacity: 0;
+  animation: clear-fx-banner-pop 900ms cubic-bezier(0.2, 1.4, 0.3, 1) forwards;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 2px;
+  white-space: nowrap;
+  pointer-events: none;
+}
+.clear-fx-banner small {
+  font-size: 0.28em;
+  font-weight: 700;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--ink);
+  -webkit-text-stroke: 1px var(--cream, #fff);
+  text-shadow: 0 2px 0 rgba(0, 0, 0, 0.2);
+}
+.clear-fx-banner-triple { color: var(--olive); }
+.clear-fx-banner-quad {
+  color: var(--tomato);
+  font-size: clamp(56px, 12vw, 140px);
+}
+.clear-fx-banner-perfect {
+  color: var(--mustard);
+  font-size: clamp(64px, 13vw, 160px);
+  animation-duration: 1100ms;
+  text-shadow:
+    0 6px 0 rgba(0, 0, 0, 0.3),
+    0 0 40px rgba(255, 210, 90, 0.9);
+}
+@keyframes clear-fx-banner-pop {
+  0% {
+    opacity: 0;
+    transform: translate(-50%, -30%) scale(0.4) rotate(-12deg);
+  }
+  35% {
+    opacity: 1;
+    transform: translate(-50%, -50%) scale(1.15) rotate(-4deg);
+  }
+  55% {
+    transform: translate(-50%, -50%) scale(0.95) rotate(-2deg);
+  }
+  75% {
+    transform: translate(-50%, -50%) scale(1.02) rotate(-3deg);
+  }
+  100% {
+    opacity: 0;
+    transform: translate(-50%, -60%) scale(0.95) rotate(-3deg);
+  }
+}
+
+/* Confetti burst. Each piece reads --fx-x, --fx-y, --fx-rot, --fx-delay,
+   --fx-dur from inline style to get a unique trajectory. */
+.clear-fx-confetti {
+  position: absolute;
+  inset: 0;
+}
+.clear-fx-piece {
+  --fx-x: 0px;
+  --fx-y: -200px;
+  --fx-rot: 540deg;
+  --fx-delay: 0ms;
+  --fx-dur: 1000ms;
+  position: absolute;
+  top: 46%;
+  width: 10px;
+  height: 14px;
+  border-radius: 2px;
+  transform: translate(-50%, -50%);
+  animation: clear-fx-piece var(--fx-dur) cubic-bezier(0.25, 0.7, 0.3, 1) var(--fx-delay) forwards;
+  opacity: 0;
+}
+.clear-fx-piece-tomato { background: var(--tomato); }
+.clear-fx-piece-mustard { background: var(--mustard); }
+.clear-fx-piece-olive { background: var(--olive); }
+.clear-fx-piece-sky { background: var(--sky, #5fb7d4); }
+.clear-fx-piece-plum { background: var(--plum, #b06ab3); }
+.clear-fx-piece-cream { background: var(--cream, #f5ead1); border: 1px solid var(--ink); }
+@keyframes clear-fx-piece {
+  0% {
+    opacity: 0;
+    transform: translate(-50%, -50%) rotate(0deg);
+  }
+  10% { opacity: 1; }
+  90% { opacity: 1; }
+  100% {
+    opacity: 0;
+    transform: translate(calc(-50% + var(--fx-x)), calc(-50% + var(--fx-y))) rotate(var(--fx-rot));
+  }
+}
+
+/* Board shake — applied to .board-wrap via ClearEffects.tsx. */
+.board-shake { animation: board-shake 380ms cubic-bezier(0.36, 0.07, 0.19, 0.97) both; }
+.board-shake-strong { animation: board-shake-strong 520ms cubic-bezier(0.36, 0.07, 0.19, 0.97) both; }
+@keyframes board-shake {
+  0%, 100% { transform: translate(0, 0); }
+  20% { transform: translate(-4px, 2px); }
+  40% { transform: translate(5px, -2px); }
+  60% { transform: translate(-3px, 3px); }
+  80% { transform: translate(2px, -1px); }
+}
+@keyframes board-shake-strong {
+  0%, 100% { transform: translate(0, 0) rotate(0); }
+  15% { transform: translate(-8px, 4px) rotate(-0.6deg); }
+  30% { transform: translate(9px, -5px) rotate(0.8deg); }
+  45% { transform: translate(-7px, 6px) rotate(-0.7deg); }
+  60% { transform: translate(6px, -4px) rotate(0.5deg); }
+  75% { transform: translate(-4px, 2px) rotate(-0.3deg); }
+  90% { transform: translate(2px, -1px) rotate(0.1deg); }
+}
+
 /* ---------- Reduced motion ---------- */
 @media (prefers-reduced-motion: reduce) {
   *,
