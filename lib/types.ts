@@ -26,6 +26,19 @@ export type BoardState = ReadonlyArray<ReadonlyArray<PieceColor | null>>;
 
 export type Theme = 'paper' | 'linen' | 'noir' | 'high_contrast';
 
+export type WorldTheme =
+  | 'none'
+  | 'jungle'
+  | 'volcano'
+  | 'abyssal'
+  | 'sakura'
+  | 'arctic'
+  | 'desert'
+  | 'cosmic'
+  | 'haunted'
+  | 'neon'
+  | 'arcade';
+
 export type PieceSet =
   | 'classic'
   | 'tetro_only'
@@ -80,6 +93,7 @@ export type LifetimeStats = {
 
 export type Settings = {
   theme: Theme;
+  worldTheme: WorldTheme;
   pieceSet: PieceSet;
   rotation: boolean;
   nextTrayPreview: boolean;

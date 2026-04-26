@@ -7,6 +7,7 @@ import { readJSON, writeJSON } from '@/lib/storage/safe';
 
 export const DEFAULT_SETTINGS: Settings = {
   theme: 'paper',
+  worldTheme: 'none',
   pieceSet: 'classic',
   rotation: false,
   nextTrayPreview: true,
@@ -46,6 +47,7 @@ export const useSettingsStore = create<State>((set, get) => ({
     writeJSON(K.settings, DEFAULT_SETTINGS);
     if (typeof document !== 'undefined') {
       document.documentElement.setAttribute('data-theme', 'paper');
+      document.documentElement.removeAttribute('data-world-theme');
     }
   },
 }));
