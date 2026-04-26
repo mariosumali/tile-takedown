@@ -222,7 +222,7 @@ const tier5: LevelInput[] = TIER5_NAMES.map((name, i) => {
     pieceSet: 'custom',
     customPool: ent.pool,
     targetMul: ent.targetMul,
-    intro: i === 0 ? 'All 19 pieces in play now. Plan your perfect clears.' :
+    intro: i === 0 ? 'Full tile set in play now. Plan your perfect clears.' :
            i === 19 ? 'No mask. No small pieces. Just you, ten by ten, and pentominos.' :
            undefined,
   };
