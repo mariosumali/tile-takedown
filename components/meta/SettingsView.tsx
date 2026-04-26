@@ -1,10 +1,11 @@
 'use client';
 
-import { Fragment as ReactFragment, useEffect } from 'react';
+import { Fragment as ReactFragment, useEffect, useState } from 'react';
 import Nav from '@/components/Nav';
 import Footer from '@/components/Footer';
 import { useSettingsStore, DEFAULT_SETTINGS } from '@/stores/useSettingsStore';
 import { playSfx } from '@/lib/audio/sfx';
+import { CHEATS, isKnownCheat, normalizeCheatInput } from '@/lib/cheats';
 import type { PieceSet, Theme, WorldTheme } from '@/lib/types';
 
 const THEMES: { id: Theme; label: string; desc: string }[] = [
@@ -188,8 +189,12 @@ export default function SettingsView() {
   const rotation = useSettingsStore((s) => s.rotation);
   const nextTrayPreview = useSettingsStore((s) => s.nextTrayPreview);
   const tapToSelect = useSettingsStore((s) => s.tapToSelect);
+  const instantTrayRefill = useSettingsStore((s) => s.instantTrayRefill);
   const sfxVolume = useSettingsStore((s) => s.sfxVolume);
   const haptics = useSettingsStore((s) => s.haptics);
+  const cheats = useSettingsStore((s) => s.cheats);
+  const activateCheat = useSettingsStore((s) => s.activateCheat);
+  const deactivateCheat = useSettingsStore((s) => s.deactivateCheat);
 
   useEffect(() => {
     hydrate();
@@ -291,6 +296,12 @@ export default function SettingsView() {
               onChange={(v) => setV('tapToSelect', v)}
             />
             <Toggle
+              label="Instant tray refill"
+              desc="Refill each slot the moment you place it, instead of waiting for all three."
+              on={instantTrayRefill}
+              onChange={(v) => setV('instantTrayRefill', v)}
+            />
+            <Toggle
               label="Haptics"
               desc="Vibration feedback on supported devices."
               on={haptics}
@@ -317,6 +328,42 @@ export default function SettingsView() {
           </div>
         </section>
 
+        <section className="meta-section">
+          <div className="eyebrow">cheat codes</div>
+          <p className="meta-hint" style={{ marginBottom: 12 }}>
+            Type a code to unlock hidden features. Wrong codes stay quiet.
+          </p>
+          <CheatCodeEntry
+            onActivate={activateCheat}
+            activeCheats={cheats}
+          />
+          {cheats.length > 0 && (
+            <div className="cheat-list">
+              {cheats.map((code) => {
+                const known = isKnownCheat(code) ? CHEATS[code] : null;
+                return (
+                  <div key={code} className="cheat-chip">
+                    <div className="cheat-chip-body">
+                      <div className="cheat-chip-code">{code}</div>
+                      <div className="cheat-chip-desc">
+                        {known ? known.desc : 'Unknown code (no-op).'}
+                      </div>
+                    </div>
+                    <button
+                      type="button"
+                      className="cheat-chip-off"
+                      onClick={() => deactivateCheat(code)}
+                      aria-label={`Deactivate ${code}`}
+                    >
+                      off
+                    </button>
+                  </div>
+                );
+              })}
+            </div>
+          )}
+        </section>
+
         <section className="meta-section danger-zone">
           <div className="eyebrow">reset</div>
           <button
@@ -338,6 +385,83 @@ export default function SettingsView() {
       </main>
       <Footer />
     </>
+  );
+}
+
+function CheatCodeEntry({
+  onActivate,
+  activeCheats,
+}: {
+  onActivate: (code: string) => boolean;
+  activeCheats: string[];
+}) {
+  const [value, setValue] = useState('');
+  const [feedback, setFeedback] = useState<
+    | { kind: 'ok'; label: string }
+    | { kind: 'already'; label: string }
+    | { kind: 'bad' }
+    | null
+  >(null);
+
+  function submit() {
+    const code = normalizeCheatInput(value);
+    if (!code) return;
+    if (!isKnownCheat(code)) {
+      setFeedback({ kind: 'bad' });
+      setValue('');
+      return;
+    }
+    if (activeCheats.includes(code)) {
+      setFeedback({ kind: 'already', label: code });
+      setValue('');
+      return;
+    }
+    const ok = onActivate(code);
+    if (ok) {
+      setFeedback({ kind: 'ok', label: CHEATS[code].name });
+      setValue('');
+    } else {
+      setFeedback({ kind: 'bad' });
+    }
+  }
+
+  return (
+    <div className="cheat-entry">
+      <input
+        type="text"
+        className="cheat-input"
+        value={value}
+        placeholder="enter code…"
+        spellCheck={false}
+        autoCapitalize="characters"
+        autoComplete="off"
+        onChange={(e) => {
+          setValue(e.target.value);
+          if (feedback) setFeedback(null);
+        }}
+        onKeyDown={(e) => {
+          if (e.key === 'Enter') {
+            e.preventDefault();
+            submit();
+          }
+        }}
+      />
+      <button
+        type="button"
+        className="btn btn-ghost cheat-activate"
+        onClick={submit}
+        disabled={!value.trim()}
+      >
+        Activate
+      </button>
+      {feedback && (
+        <div className={`cheat-feedback cheat-feedback-${feedback.kind}`}>
+          {feedback.kind === 'ok' && `✓ ${feedback.label} unlocked.`}
+          {feedback.kind === 'already' && `${feedback.label} is already on.`}
+          {feedback.kind === 'bad' && 'Nope. Try another code.'}
+        </div>
+      )}
+    </div>
   );
 }
 

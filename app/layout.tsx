@@ -1,5 +1,6 @@
 import type { Metadata, Viewport } from 'next';
 import { Caprasimo, Fraunces } from 'next/font/google';
+import DebugTerminal from '@/components/game/DebugTerminal';
 import './globals.css';
 
 const caprasimo = Caprasimo({
@@ -90,6 +91,7 @@ export default function RootLayout({
         </a>
         <div className="grain" aria-hidden="true" />
         <div id="main">{children}</div>
+        <DebugTerminal />
       </body>
     </html>
   );
