@@ -9,8 +9,10 @@ import { useSandboxStore } from '@/stores/useSandboxStore';
 import { PIECE_COLORS, PIECE_DEFS } from '@/lib/engine/pieces';
 import type { PieceColor } from '@/lib/types';
 import { useSettingsStore } from '@/stores/useSettingsStore';
+import { useApplyWorldTheme } from '@/lib/hooks/useApplyWorldTheme';
 
 export default function Sandbox() {
+  useApplyWorldTheme();
   const hydrated = useSandboxStore((s) => s.hydrated);
   const board = useSandboxStore((s) => s.board);
   const selectedShape = useSandboxStore((s) => s.selectedShape);

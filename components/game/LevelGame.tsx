@@ -21,6 +21,7 @@ import {
 import { comboMultiplier } from '@/lib/engine/scoring';
 import type { PieceShape as ShapeT, PieceColor } from '@/lib/types';
 import { playSfx, setSessionMuted } from '@/lib/audio/sfx';
+import { useApplyWorldTheme } from '@/lib/hooks/useApplyWorldTheme';
 import { isTouchLikeEnvironment } from '@/lib/useTouchLike';
 
 type Props = {
@@ -28,6 +29,7 @@ type Props = {
 };
 
 export default function LevelGame({ levelId }: Props) {
+  useApplyWorldTheme();
   const hydrated = useLevelsStore((s) => s.hydrated);
   const level = useLevelsStore((s) => s.level);
   const board = useLevelsStore((s) => s.board);

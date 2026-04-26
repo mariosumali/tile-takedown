@@ -26,9 +26,11 @@ import {
 import { comboMultiplier } from '@/lib/engine/scoring';
 import type { PieceShape as ShapeT, PieceColor } from '@/lib/types';
 import { playSfx, vibrate, setSessionMuted } from '@/lib/audio/sfx';
+import { useApplyWorldTheme } from '@/lib/hooks/useApplyWorldTheme';
 import { isTouchLikeEnvironment } from '@/lib/useTouchLike';
 
 export default function ClassicGame() {
+  useApplyWorldTheme();
   const hydrated = useGameStore((s) => s.hydrated);
   const run = useGameStore((s) => s.run);
   const ghost = useGameStore((s) => s.ghost);

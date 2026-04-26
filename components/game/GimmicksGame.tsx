@@ -22,8 +22,10 @@ import { comboMultiplier } from '@/lib/engine/scoring';
 import type { PieceShape as ShapeT, PieceColor } from '@/lib/types';
 import { playSfx, setSessionMuted, vibrate } from '@/lib/audio/sfx';
 import { isTouchLikeEnvironment, useTouchLike } from '@/lib/useTouchLike';
+import { useApplyWorldTheme } from '@/lib/hooks/useApplyWorldTheme';
 
 export default function GimmicksGame() {
+  useApplyWorldTheme();
   const hydrated = useGimmicksStore((s) => s.hydrated);
   const run = useGimmicksStore((s) => s.run);
   const ghost = useGimmicksStore((s) => s.ghost);
