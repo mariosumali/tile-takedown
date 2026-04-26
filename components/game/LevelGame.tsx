@@ -8,6 +8,7 @@ import GameBoard from './GameBoard';
 import Tray from './Tray';
 import MiniStats from './MiniStats';
 import LevelCompleteCard from './LevelCompleteCard';
+import ClearEffects from './ClearEffects';
 import PieceShape from '../PieceShape';
 import { useLevelsStore } from '@/stores/useLevelsStore';
 import { useSettingsStore } from '@/stores/useSettingsStore';
@@ -17,8 +18,10 @@ import {
   getClearedLines,
   placePiece,
 } from '@/lib/engine/grid';
+import { comboMultiplier } from '@/lib/engine/scoring';
 import type { PieceShape as ShapeT, PieceColor } from '@/lib/types';
 import { playSfx, setSessionMuted } from '@/lib/audio/sfx';
+import { isTouchLikeEnvironment } from '@/lib/useTouchLike';
 
 type Props = {
   levelId: string;
@@ -73,6 +76,7 @@ export default function LevelGame({ levelId }: Props) {
   const [pointerKind, setPointerKind] = useState<'mouse' | 'touch' | 'pen'>('mouse');
   const [cellDim, setCellDim] = useState<{ cell: number; gap: number }>({ cell: 60, gap: 5 });
   const [wobbleKey, setWobbleKey] = useState(0);
+  const boardWrapRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     settingsHydrate();
@@ -317,11 +321,7 @@ export default function LevelGame({ levelId }: Props) {
         return;
       }
       if ((e.key === 'r' || e.key === 'R') && rotationEnabled) {
-        const mobileNoRotate =
-          typeof window !== 'undefined' &&
-          (window.matchMedia('(max-width: 760px)').matches ||
-            window.matchMedia('(pointer: coarse)').matches);
-        if (mobileNoRotate) return;
+        if (isTouchLikeEnvironment()) return;
         e.preventDefault();
         rotateSelected();
         return;
@@ -376,7 +376,7 @@ export default function LevelGame({ levelId }: Props) {
     { k: 'Placed', v: placements },
     { k: 'Clears', v: clears.single + clears.double + clears.triple + clears.quad },
     { k: 'Perfect', v: perfectClears },
-    { k: 'Peak', v: `×${(1 + 0.25 * comboPeak).toFixed(2)}` },
+    { k: 'Peak', v: `×${comboMultiplier(comboPeak).toFixed(2)}` },
   ];
 
   const chromeLive =
@@ -388,8 +388,7 @@ export default function LevelGame({ levelId }: Props) {
         ? 'target hit · keep going for more stars'
         : '';
 
-  const comboMultStr = (1 + 0.25 * combo).toFixed(2);
-  const comboDisplay = combo > 0 ? `×${Math.min(3, Number(comboMultStr)).toFixed(2)}` : '×1.00';
+  const comboDisplay = `×${comboMultiplier(combo).toFixed(2)}`;
   const comboOn = Math.min(4, combo);
 
   const trayHint = tapToSelect
@@ -433,7 +432,7 @@ export default function LevelGame({ levelId }: Props) {
           />
         </div>
 
-        <div className="board-wrap">
+        <div className="board-wrap" ref={boardWrapRef}>
           <GameBoard
             board={board}
             mask={mask}
@@ -544,6 +543,16 @@ export default function LevelGame({ levelId }: Props) {
           <PieceShape shape={activePiece.shape} color={activePiece.color} size="board" />
         </div>
       )}
+
+      <ClearEffects
+        board={board}
+        clearingBoard={clearingBoard}
+        clearingRows={clearingRows}
+        clearingCols={clearingCols}
+        combo={combo}
+        boardWrapRef={boardWrapRef}
+        mask={mask}
+      />
 
       {finishedStars !== null && (
         <LevelCompleteCard

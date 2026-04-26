@@ -23,17 +23,15 @@ import {
   placePiece,
 } from '@/lib/engine/grid';
 import { scoreTurn } from '@/lib/engine/scoring';
-import {
-  buildBagFromPool,
-  drawTrayFromPool,
-  drawOneFromPool,
-} from '@/lib/engine/bag';
+import { generateSolvableBatch } from '@/lib/engine/trayGen';
 import { pieceSize, rotateShape } from '@/lib/engine/pieces';
 import { K } from '@/lib/storage/keys';
 import { readJSON, writeJSON, remove } from '@/lib/storage/safe';
-import { playClearSfx } from '@/lib/audio/sfx';
+import { playClearSfx, playComboSfx } from '@/lib/audio/sfx';
 import { levelById } from '@/lib/levels/catalog';
 import { useStatsStore } from './useStatsStore';
+import { useSettingsStore } from './useSettingsStore';
+import { effectiveRotationEnabled } from '@/lib/useTouchLike';
 
 /* ------------------------------------------------------------------------ */
 /* Types                                                                     */
@@ -47,6 +45,7 @@ type Snap = {
   nextTray: TrayPiece[];
   score: number;
   combo: number;
+  comboGrace: number;
   comboPeak: number;
   placements: number;
   clears: ClearCounts;
@@ -61,6 +60,7 @@ type ActiveLevelSave = {
   nextTray: TrayPiece[];
   score: number;
   combo: number;
+  comboGrace: number;
   comboPeak: number;
   placements: number;
   clears: ClearCounts;
@@ -84,6 +84,7 @@ type State = {
 
   score: number;
   combo: number;
+  comboGrace: number;
   comboPeak: number;
   placements: number;
   clears: ClearCounts;
@@ -181,6 +182,7 @@ export const useLevelsStore = create<State>((set, get) => {
       nextTray: s.nextTray,
       score: s.score,
       combo: s.combo,
+      comboGrace: s.comboGrace,
       comboPeak: s.comboPeak,
       placements: s.placements,
       clears: { ...s.clears },
@@ -203,6 +205,7 @@ export const useLevelsStore = create<State>((set, get) => {
       nextTray: s.nextTray,
       score: s.score,
       combo: s.combo,
+      comboGrace: s.comboGrace,
       comboPeak: s.comboPeak,
       placements: s.placements,
       clears: s.clears,
@@ -228,6 +231,7 @@ export const useLevelsStore = create<State>((set, get) => {
 
     score: 0,
     combo: 0,
+    comboGrace: 0,
     comboPeak: 0,
     placements: 0,
     clears: { single: 0, double: 0, triple: 0, quad: 0 },
@@ -256,19 +260,35 @@ export const useLevelsStore = create<State>((set, get) => {
       const level = levelById(levelId);
       if (!level) return;
       const pool = poolOf(level);
-      const rng = Math.random;
-      const bag0 = buildBagFromPool(pool, 0, rng);
-      const first = drawTrayFromPool(bag0, pool, 0, rng);
-      const next = drawTrayFromPool(first.bag, pool, 0, rng);
+      const rotationAllowed = effectiveRotationEnabled(
+        useSettingsStore.getState().rotation,
+      );
+      const board = createEmptyBoard(level.dims.rows, level.dims.cols);
+      const source = { kind: 'pool' as const, pool };
+      const first = generateSolvableBatch({
+        board,
+        bag: [],
+        source,
+        mask: level.dims.mask,
+        rotationAllowed,
+      });
+      const second = generateSolvableBatch({
+        board,
+        bag: first.bag,
+        source,
+        mask: level.dims.mask,
+        rotationAllowed,
+      });
       set({
         levelId,
         level,
-        board: createEmptyBoard(level.dims.rows, level.dims.cols),
+        board,
         tray: first.tray.map(withId),
-        nextTray: next.tray.map(withId),
-        bag: next.bag,
+        nextTray: second.tray.map(withId),
+        bag: second.bag,
         score: 0,
         combo: 0,
+        comboGrace: 0,
         comboPeak: 0,
         placements: 0,
         clears: { single: 0, double: 0, triple: 0, quad: 0 },
@@ -299,6 +319,7 @@ export const useLevelsStore = create<State>((set, get) => {
         bag: [],
         score: 0,
         combo: 0,
+        comboGrace: 0,
         comboPeak: 0,
         placements: 0,
         clears: { single: 0, double: 0, triple: 0, quad: 0 },
@@ -325,10 +346,20 @@ export const useLevelsStore = create<State>((set, get) => {
       const s = get();
       if (!s.level || s.finishedStars !== null) return false;
       if (s.reshuffleUsed) return false;
-      if (canAnyPieceFit(s.board, s.tray, s.level.dims.mask)) return false;
+      const rotationAllowed = effectiveRotationEnabled(
+        useSettingsStore.getState().rotation,
+      );
+      if (canAnyPieceFit(s.board, s.tray, s.level.dims.mask, rotationAllowed))
+        return false;
       const pool = poolOf(s.level);
-      const rng = Math.random;
-      const drew = drawTrayFromPool(s.bag, pool, boardDensity(s.board, s.level.dims.mask), rng);
+      const drew = generateSolvableBatch({
+        board: s.board,
+        bag: s.bag.slice(),
+        source: { kind: 'pool', pool },
+        mask: s.level.dims.mask,
+        rotationAllowed,
+        density: boardDensity(s.board, s.level.dims.mask),
+      });
       set({
         tray: drew.tray.map(withId),
         bag: drew.bag,
@@ -356,6 +387,7 @@ export const useLevelsStore = create<State>((set, get) => {
     rotateSelected: () => {
       const { tray, selectedTrayIndex } = get();
       if (selectedTrayIndex === null) return;
+      if (!effectiveRotationEnabled(useSettingsStore.getState().rotation)) return;
       const piece = tray[selectedTrayIndex];
       if (!piece) return;
       const nextShape = rotateShape(piece.shape);
@@ -381,10 +413,11 @@ export const useLevelsStore = create<State>((set, get) => {
       const perfect = cleared.totalLines > 0 && boardIsEmpty(afterClear, mask);
 
       const cellsCount = pieceSize(piece.shape);
-      const { turn: turnScore, combo } = scoreTurn({
+      const { turn: turnScore, combo, comboGrace } = scoreTurn({
         cellsPlaced: cellsCount,
         linesCleared: cleared.totalLines,
         prevCombo: s.combo,
+        prevComboGrace: s.comboGrace,
         perfectClear: perfect,
       });
 
@@ -395,17 +428,33 @@ export const useLevelsStore = create<State>((set, get) => {
       else if (cleared.totalLines >= 4) clears.quad++;
 
       const pool = poolOf(level);
+      const rotationAllowed = effectiveRotationEnabled(
+        useSettingsStore.getState().rotation,
+      );
       const density = boardDensity(afterClear, mask);
 
-      const tray = s.tray.slice();
-      const incoming = s.nextTray[0] ?? null;
-      tray[trayIndex] = incoming;
+      // Batch refresh: vacate the slot; only swap in `nextTray` once all
+      // three slots are empty. New `nextTray` is a freshly generated
+      // solvable batch built against the post-clear board.
+      let tray: (TrayPiece | null)[] = s.tray.slice();
+      tray[trayIndex] = null;
+      let nextTray: TrayPiece[] = s.nextTray;
+      let bag: ReadonlyArray<Piece> = s.bag;
 
-      let nextTray = s.nextTray.slice(1);
-      let bag = s.bag;
-      const drawn = drawOneFromPool(bag, pool, density);
-      nextTray = nextTray.concat(withId(drawn.piece));
-      bag = drawn.bag;
+      const trayExhausted = tray.every((t) => t === null);
+      if (trayExhausted) {
+        tray = nextTray.slice();
+        const drawn = generateSolvableBatch({
+          board: afterClear,
+          bag: bag.slice(),
+          source: { kind: 'pool', pool },
+          mask,
+          rotationAllowed,
+          density,
+        });
+        nextTray = drawn.tray.map(withId);
+        bag = drawn.bag;
+      }
 
       const comboPeak = Math.max(s.comboPeak, combo);
       const perfectClears = s.perfectClears + (perfect ? 1 : 0);
@@ -435,6 +484,7 @@ export const useLevelsStore = create<State>((set, get) => {
         bag,
         score,
         combo,
+        comboGrace,
         comboPeak,
         placements: s.placements + 1,
         clears,
@@ -451,7 +501,10 @@ export const useLevelsStore = create<State>((set, get) => {
       });
 
       if (cleared.totalLines > 0) {
-        playClearSfx(cleared.totalLines, turnScore.multiplier);
+        playClearSfx(cleared.totalLines, turnScore.multiplier, { perfect });
+        if (combo >= 2 && combo > s.combo) {
+          playComboSfx(combo);
+        }
       }
 
       saveActive();
@@ -482,8 +535,12 @@ export const useLevelsStore = create<State>((set, get) => {
           set({ finishedStars: 3 });
           persistActive(null);
         }, cleared.totalLines > 0 ? 900 : 250);
-      } else if (!canAnyPieceFit(afterClear, tray, mask)) {
-        // 2) Tray deadlock after placement.
+      } else if (
+        tray.some((t) => t !== null) &&
+        !canAnyPieceFit(afterClear, tray, mask, rotationAllowed)
+      ) {
+        // 2) Tray deadlock after placement — only when remaining pieces can't
+        //    fit. A fully-swapped tray is checked against the new batch.
         const canReshuffle = !s.reshuffleUsed;
         if (canReshuffle) {
           setTimeout(() => get().reshuffle(), 500);
@@ -519,6 +576,7 @@ export const useLevelsStore = create<State>((set, get) => {
         nextTray: snap.nextTray,
         score: snap.score,
         combo: snap.combo,
+        comboGrace: snap.comboGrace,
         comboPeak: snap.comboPeak,
         placements: snap.placements,
         clears: { ...snap.clears },
