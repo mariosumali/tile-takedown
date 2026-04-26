@@ -98,9 +98,14 @@ export type Settings = {
   rotation: boolean;
   nextTrayPreview: boolean;
   tapToSelect: boolean;
+  /** Refill each tray slot the moment its piece is placed, instead of waiting
+   *  for all three slots to empty and swapping in a new batch together. */
+  instantTrayRefill: boolean;
   sfxVolume: number;
   ambientVolume: number;
   haptics: boolean;
+  /** Unlocked cheat codes (uppercase strings). Empty by default. */
+  cheats: string[];
 };
 
 export type Streak = {

@@ -1,11 +1,12 @@
 import { describe, it, expect } from 'vitest';
 import {
   comboMultiplier,
+  comboTier,
   lineClearBase,
   placementPoints,
   scoreTurn,
-  COMBO_GRACE_TURNS,
   COMBO_CAP,
+  COMBO_TIERS,
   PERFECT_CLEAR_BONUS,
   PLACEMENT_POINT_PER_CELL,
   SINGLE_CLEAR,
@@ -36,67 +37,60 @@ describe('scoring', () => {
     expect(comboMultiplier(100)).toBe(COMBO_CAP);
   });
 
-  it('turn with no clear spends a grace turn and preserves combo', () => {
-    const { turn, combo, comboGrace } = scoreTurn({
+  it('no-clear turn decays combo by 1 instead of resetting', () => {
+    const { turn, combo } = scoreTurn({
       cellsPlaced: 3,
       linesCleared: 0,
-      prevCombo: 2,
-      prevComboGrace: COMBO_GRACE_TURNS,
+      prevCombo: 3,
       perfectClear: false,
     });
     expect(combo).toBe(2);
-    expect(comboGrace).toBe(COMBO_GRACE_TURNS - 1);
     expect(turn.total).toBe(placementPoints(3));
     expect(turn.multiplier).toBe(1);
   });
 
-  it('two consecutive non-clear turns break the combo', () => {
-    const first = scoreTurn({
-      cellsPlaced: 3,
-      linesCleared: 0,
-      prevCombo: 2,
-      prevComboGrace: COMBO_GRACE_TURNS,
-      perfectClear: false,
-    });
-    const second = scoreTurn({
-      cellsPlaced: 3,
-      linesCleared: 0,
-      prevCombo: first.combo,
-      prevComboGrace: first.comboGrace,
-      perfectClear: false,
-    });
-    expect(second.combo).toBe(0);
-    expect(second.comboGrace).toBe(0);
+  it('combo decays to zero over consecutive non-clear turns', () => {
+    let prev = 3;
+    const decayed: number[] = [];
+    for (let i = 0; i < 5; i++) {
+      const { combo } = scoreTurn({
+        cellsPlaced: 2,
+        linesCleared: 0,
+        prevCombo: prev,
+        perfectClear: false,
+      });
+      decayed.push(combo);
+      prev = combo;
+    }
+    expect(decayed).toEqual([2, 1, 0, 0, 0]);
   });
 
-  it('clearing after a grace miss keeps the combo climbing', () => {
+  it('decay cannot drive combo below zero', () => {
+    const { combo } = scoreTurn({
+      cellsPlaced: 3,
+      linesCleared: 0,
+      prevCombo: 0,
+      perfectClear: false,
+    });
+    expect(combo).toBe(0);
+  });
+
+  it('clearing after a decay step keeps the combo climbing', () => {
     const miss = scoreTurn({
       cellsPlaced: 2,
       linesCleared: 0,
       prevCombo: 3,
-      prevComboGrace: COMBO_GRACE_TURNS,
       perfectClear: false,
     });
     const hit = scoreTurn({
       cellsPlaced: 4,
       linesCleared: 1,
       prevCombo: miss.combo,
-      prevComboGrace: miss.comboGrace,
       perfectClear: false,
     });
-    expect(hit.combo).toBe(4);
-    expect(hit.turn.multiplier).toBe(comboMultiplier(4));
-  });
-
-  it('clearing refreshes the grace allowance', () => {
-    const hit = scoreTurn({
-      cellsPlaced: 4,
-      linesCleared: 1,
-      prevCombo: 0,
-      prevComboGrace: 0,
-      perfectClear: false,
-    });
-    expect(hit.comboGrace).toBe(COMBO_GRACE_TURNS);
+    expect(miss.combo).toBe(2);
+    expect(hit.combo).toBe(3);
+    expect(hit.turn.multiplier).toBe(comboMultiplier(3));
   });
 
   it('single clear + first combo step applies the first-step multiplier', () => {
@@ -104,7 +98,6 @@ describe('scoring', () => {
       cellsPlaced: 4,
       linesCleared: 1,
       prevCombo: 0,
-      prevComboGrace: 0,
       perfectClear: false,
     });
     const mult = comboMultiplier(1);
@@ -118,7 +111,6 @@ describe('scoring', () => {
       cellsPlaced: 5,
       linesCleared: 2,
       prevCombo: 0,
-      prevComboGrace: 0,
       perfectClear: true,
     });
     const mult = comboMultiplier(1);
@@ -127,5 +119,18 @@ describe('scoring', () => {
         Math.round(DOUBLE_CLEAR * mult) +
         Math.round(PERFECT_CLEAR_BONUS * mult),
     );
+  });
+
+  it('comboTier maps combo counts to visual tiers', () => {
+    expect(comboTier(0)).toBe('none');
+    expect(comboTier(1)).toBe('none');
+    expect(comboTier(COMBO_TIERS.spark)).toBe('spark');
+    expect(comboTier(3)).toBe('spark');
+    expect(comboTier(COMBO_TIERS.hot)).toBe('hot');
+    expect(comboTier(5)).toBe('hot');
+    expect(comboTier(COMBO_TIERS.fire)).toBe('fire');
+    expect(comboTier(7)).toBe('fire');
+    expect(comboTier(COMBO_TIERS.inferno)).toBe('inferno');
+    expect(comboTier(20)).toBe('inferno');
   });
 });

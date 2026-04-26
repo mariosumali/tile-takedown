@@ -55,7 +55,6 @@ function runGreedy(
   let bag: Piece[] = buildBagFromPool(pool, 0, rng);
   let score = 0;
   let combo = 0;
-  let comboGrace = 0;
   let moves = 0;
   let reshufflesLeft = 5;
 

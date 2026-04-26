@@ -5,6 +5,8 @@ import { getDef } from './pieces';
 import {
   boardPressure,
   generateSolvableBatch,
+  pickSolvableSlotRefill,
+  promoteOrRegenerateBatch,
   tripletIsSolvable,
 } from './trayGen';
 
@@ -108,6 +110,95 @@ describe('generateSolvableBatch', () => {
       rng: mulberryRng(7),
     });
     expect(out.tray).toHaveLength(3);
+  });
+});
+
+describe('promoteOrRegenerateBatch', () => {
+  it('passes through a preview that is still solvable on the current board', () => {
+    const board = createEmptyBoard(8, 8);
+    const preview = [
+      pieceFromId('mono'),
+      pieceFromId('domino_h'),
+      pieceFromId('i3_h'),
+    ];
+    const out = promoteOrRegenerateBatch({
+      board,
+      preview,
+      bag: [],
+      source: { kind: 'classic', pieceSet: 'classic' },
+      rng: mulberryRng(1),
+    });
+    expect(out.tray).toEqual(preview.map((p) => ({ shape: p.shape, color: p.color })));
+    expect(out.attempts).toBe(0);
+  });
+
+  it('swaps in a solvable batch when the preview no longer fits', () => {
+    // Lock everything except one cell at (0,7). Only a mono can fit there.
+    const board: BoardState = createEmptyBoard(8, 8).map((row, r) =>
+      row.map((_, c) => (r === 0 && c === 7 ? null : ('olive' as const))),
+    );
+    // Stale preview of three large pieces — none of them can land anywhere.
+    const preview = [
+      pieceFromId('i5_h'),
+      pieceFromId('i5_h'),
+      pieceFromId('plus5'),
+    ];
+    expect(tripletIsSolvable(board, preview)).toBe(false);
+
+    const out = promoteOrRegenerateBatch({
+      board,
+      preview,
+      bag: [],
+      source: { kind: 'pool', pool: ['mono', 'domino_h', 'i3_h'] },
+      rng: mulberryRng(3),
+    });
+    // Replacement batch must be solvable on the current board.
+    expect(tripletIsSolvable(board, out.tray)).toBe(true);
+  });
+});
+
+describe('pickSolvableSlotRefill', () => {
+  it('returns the preview unchanged when it still composes', () => {
+    const board = createEmptyBoard(8, 8);
+    const held = [null, pieceFromId('domino_h'), pieceFromId('i3_h')];
+    const preview = pieceFromId('mono');
+    const out = pickSolvableSlotRefill({
+      board,
+      heldTray: held,
+      slotIndex: 0,
+      preview,
+      bag: [],
+      source: { kind: 'classic', pieceSet: 'classic' },
+      rng: mulberryRng(9),
+    });
+    expect(out.replaced).toBe(false);
+    expect(out.piece.shape).toEqual(preview.shape);
+  });
+
+  it('swaps in a piece from the bag when the preview fails with the held pieces', () => {
+    // Only (0,7) is open. Held pieces are already too big to fit — the one
+    // we drop in has to be the mono that clears row 0.
+    const board: BoardState = createEmptyBoard(8, 8).map((row, r) =>
+      row.map((_, c) => (r === 0 && c === 7 ? null : ('olive' as const))),
+    );
+    const held: (Piece | null)[] = [null, pieceFromId('i3_h'), pieceFromId('i3_h')];
+    const preview = pieceFromId('i5_h'); // won't fit anywhere
+    const out = pickSolvableSlotRefill({
+      board,
+      heldTray: held,
+      slotIndex: 0,
+      preview,
+      bag: [pieceFromId('mono')],
+      source: { kind: 'pool', pool: ['mono'] },
+      rng: mulberryRng(11),
+    });
+    expect(out.replaced).toBe(true);
+    // The chosen piece, together with the held pieces, must be solvable.
+    const finalTray = held.slice();
+    finalTray[0] = out.piece;
+    expect(tripletIsSolvable(board, finalTray.filter(Boolean) as Piece[])).toBe(
+      true,
+    );
   });
 });
 
