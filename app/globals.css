@@ -2953,3 +2953,796 @@ html[data-theme='high_contrast'] :where(a, button, [role='button']):focus-visibl
   outline-width: 4px;
   outline-color: #000;
 }
+
+/* ============================================================
+   WORLD THEMES
+   Opt-in visual overhauls scoped to game-mode pages via
+   html[data-world-theme='<id>']. Each theme redefines the full
+   color token set, layers a fixed backdrop (body::before), tunes
+   the board frame and tile chrome, and decorates filled tiles /
+   tray pieces with a shared ornament glyph.
+   ============================================================ */
+
+/* Shared scaffolding: every world theme gets a positioned body
+   for the backdrop, and every non-empty tray piece can host a
+   pseudo-element ornament. */
+html[data-world-theme] body::before {
+  content: '';
+  position: fixed;
+  inset: 0;
+  z-index: 0;
+  pointer-events: none;
+  background: transparent;
+}
+html[data-world-theme] .tp-cell:not(.empty) {
+  position: relative;
+  overflow: hidden;
+}
+html[data-world-theme] .board-grid .cell.filled {
+  overflow: hidden;
+}
+/* Two-layer tile chrome: ::before paints a full-bleed material
+   texture, ::after paints a smaller centered glyph / sheen on top.
+   Both cascade across board, ghost (skipped via .ghost ↛ .filled),
+   and tray. `.bomb` is excluded from ::before because the bomb
+   icon uses that pseudo-element (see .cell.bomb::before). */
+html[data-world-theme] .board-grid .cell.filled:not(.bomb)::before,
+html[data-world-theme] .tp-cell:not(.empty):not(.bomb)::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  background-repeat: no-repeat;
+  background-position: center;
+  background-size: cover;
+  mix-blend-mode: overlay;
+  opacity: 0.95;
+  z-index: 0;
+}
+html[data-world-theme] .board-grid .cell.filled::after,
+html[data-world-theme] .tp-cell:not(.empty)::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  background-repeat: no-repeat;
+  background-position: center;
+  background-size: 72% 72%;
+  opacity: 0.9;
+  z-index: 1;
+}
+/* Suppress ornament on ultra-small preview tiles (landing demo). */
+html[data-world-theme] .tp-cell.sz-mini::before,
+html[data-world-theme] .tp-cell.sz-mini::after {
+  display: none;
+}
+
+/* ---------- Jungle Temple ---------- */
+html[data-world-theme='jungle'] {
+  --paper: #f3ecd3;
+  --paper-2: #e3dcba;
+  --paper-3: #2f4a2a;
+  --ink: #1b2a1a;
+  --ink-2: #3a4a32;
+  --ink-3: #6e7c5a;
+  --tomato: #c75a3b;
+  --mustard: #e0a73a;
+  --olive: #4e7a3a;
+  --sky: #4d8fa5;
+  --plum: #7d3a6c;
+  --cream-tile: #d9c994;
+}
+html[data-world-theme='jungle'] body::before {
+  background:
+    radial-gradient(ellipse at 50% 0%, rgba(255, 228, 160, 0.35), transparent 55%),
+    linear-gradient(180deg, #3f5a2f 0%, #2a3f22 70%, #1e2f18 100%),
+    url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='160' height='160' viewBox='0 0 160 160'><g fill='rgba(20,40,20,0.28)'><path d='M30 20 C20 40 20 60 30 80 C45 70 50 50 30 20 Z'/><path d='M120 100 C110 120 110 140 120 150 C135 140 140 120 120 100 Z'/></g></svg>");
+  background-size: cover, cover, 220px 220px;
+}
+html[data-world-theme='jungle'] .board {
+  background: var(--paper-3);
+  border-color: #0e1a0d;
+  box-shadow: 6px 6px 0 0 #0e1a0d, inset 0 0 0 4px #5a7a4a, inset 0 0 0 6px #0e1a0d;
+}
+html[data-world-theme='jungle'] .board-grid .cell {
+  border-color: rgba(232, 220, 170, 0.28);
+}
+html[data-world-theme='jungle'] .board-grid .cell.filled,
+html[data-world-theme='jungle'] .tp-cell:not(.empty) {
+  box-shadow: 2px 2px 0 0 var(--ink), inset 0 1px 0 rgba(245, 235, 200, 0.28), inset 0 -1px 0 rgba(20, 38, 18, 0.45), inset 1px 0 0 rgba(245, 235, 200, 0.14), inset -1px 0 0 rgba(20, 38, 18, 0.3);
+}
+html[data-world-theme='jungle'] .board-grid .cell.filled:not(.bomb)::before,
+html[data-world-theme='jungle'] .tp-cell:not(.empty):not(.bomb)::before {
+  background-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 40 40' preserveAspectRatio='none'><defs><filter id='s' x='0' y='0'><feTurbulence type='fractalNoise' baseFrequency='0.75' numOctaves='2' seed='5'/><feColorMatrix values='0 0 0 0 0.11  0 0 0 0 0.09 0 0 0 0 0.05  0 0 0 0.45 0'/></filter></defs><rect width='40' height='40' filter='url(%23s)'/><g stroke='rgba(20,35,15,0.55)' stroke-linecap='round' fill='none'><path d='M-2 10 L14 14 L22 11 L40 18' stroke-width='0.7'/><path d='M0 30 L12 26 L26 32 L42 28' stroke-width='0.6'/><path d='M6 -2 L10 12 L14 22 L10 34 L16 42' stroke-width='0.5'/><path d='M30 -2 L28 14 L34 26 L30 42' stroke-width='0.5'/></g><g fill='rgba(20,35,15,0.35)'><circle cx='6' cy='20' r='0.5'/><circle cx='18' cy='6' r='0.4'/><circle cx='32' cy='22' r='0.5'/><circle cx='24' cy='36' r='0.45'/></g></svg>");
+  mix-blend-mode: multiply;
+  opacity: 0.85;
+}
+html[data-world-theme='jungle'] .board-grid .cell.filled::after,
+html[data-world-theme='jungle'] .tp-cell:not(.empty)::after {
+  background-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 40 40' preserveAspectRatio='none'><g fill='none' stroke='rgba(74,120,60,0.9)' stroke-width='1.2' stroke-linecap='round'><path d='M2 10 C4 6 8 4 11 6 C13 8 12 11 10 11 C8 11 8 8 10 8'/><path d='M6 4 C7 6 9 7 11 6'/><path d='M38 30 C36 34 32 36 29 34 C27 32 28 29 30 29 C32 29 32 32 30 32'/><path d='M34 36 C33 34 31 33 29 34'/></g><g fill='rgba(74,120,60,0.85)'><ellipse cx='8' cy='8' rx='2.2' ry='1.1' transform='rotate(45 8 8)'/><ellipse cx='32' cy='32' rx='2.2' ry='1.1' transform='rotate(45 32 32)'/><ellipse cx='6' cy='6' rx='1.4' ry='0.7' transform='rotate(45 6 6)'/><ellipse cx='34' cy='34' rx='1.4' ry='0.7' transform='rotate(45 34 34)'/></g></svg>");
+  background-size: 100% 100%;
+  mix-blend-mode: overlay;
+  opacity: 0.95;
+}
+
+/* ---------- Volcano Forge ---------- */
+html[data-world-theme='volcano'] {
+  --paper: #2a1a17;
+  --paper-2: #3a211a;
+  --paper-3: #1a0d0b;
+  --ink: #f4d4a0;
+  --ink-2: #d9ad78;
+  --ink-3: #a67a50;
+  --tomato: #ff4a28;
+  --mustard: #ffb640;
+  --olive: #9a5b2e;
+  --sky: #c76a3c;
+  --plum: #c23a52;
+  --cream-tile: #6a4030;
+}
+html[data-world-theme='volcano'] body::before {
+  background:
+    radial-gradient(ellipse at 50% 100%, rgba(255, 120, 40, 0.45), transparent 55%),
+    radial-gradient(ellipse at 20% 20%, rgba(255, 60, 20, 0.18), transparent 60%),
+    linear-gradient(180deg, #1a0b0a 0%, #2a110b 60%, #3a1a0e 100%),
+    url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='140' height='140'><g fill='rgba(255,180,80,0.35)'><circle cx='20' cy='30' r='1.2'/><circle cx='80' cy='15' r='0.8'/><circle cx='120' cy='60' r='1.4'/><circle cx='40' cy='90' r='0.9'/><circle cx='100' cy='110' r='1.1'/><circle cx='60' cy='130' r='0.7'/></g></svg>");
+  background-size: cover, cover, cover, 180px 180px;
+}
+html[data-world-theme='volcano'] .board {
+  background: var(--paper-3);
+  border-color: #ff6a28;
+  box-shadow: 6px 6px 0 0 #3a110a, inset 0 0 0 2px rgba(255, 100, 40, 0.6), inset 0 0 24px rgba(255, 80, 20, 0.35);
+}
+html[data-world-theme='volcano'] .board-grid .cell {
+  border-color: rgba(255, 180, 100, 0.18);
+  background: #2a1513;
+}
+html[data-world-theme='volcano'] .board-grid .cell.filled,
+html[data-world-theme='volcano'] .tp-cell:not(.empty) {
+  box-shadow: 2px 2px 0 0 var(--ink), inset 0 0 10px rgba(255, 90, 20, 0.3),
+    inset 0 1px 0 rgba(255, 210, 130, 0.45), inset 0 -1px 0 rgba(40, 10, 5, 0.45);
+}
+html[data-world-theme='volcano'] .board-grid .cell.filled:not(.bomb)::before,
+html[data-world-theme='volcano'] .tp-cell:not(.empty):not(.bomb)::before {
+  background-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 40 40' preserveAspectRatio='none'><defs><filter id='n' x='0' y='0'><feTurbulence type='fractalNoise' baseFrequency='0.6' numOctaves='2' seed='3'/><feColorMatrix values='0 0 0 0 0.1 0 0 0 0 0.04 0 0 0 0 0.02 0 0 0 0.55 0'/></filter></defs><rect width='40' height='40' filter='url(%23n)'/><g fill='rgba(255,200,80,0.78)' stroke='rgba(255,230,150,0.9)' stroke-width='0.3'><path d='M2 12 L10 14 L14 10 L22 13 L26 9 L34 12 L40 10 L40 14 L34 15 L27 13 L22 17 L15 14 L10 18 L4 16 Z'/><path d='M0 26 L8 28 L12 25 L20 29 L26 26 L32 30 L40 28 L40 31 L33 32 L27 29 L21 32 L13 29 L8 32 L0 30 Z'/><path d='M18 0 L20 8 L17 14 L21 20 L19 28 L22 34 L20 40 L23 40 L25 34 L22 28 L24 20 L20 14 L23 8 L21 0 Z'/></g></svg>");
+  mix-blend-mode: screen;
+  opacity: 0.78;
+}
+html[data-world-theme='volcano'] .board-grid .cell.filled::after,
+html[data-world-theme='volcano'] .tp-cell:not(.empty)::after {
+  background-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 40 40' preserveAspectRatio='none'><defs><radialGradient id='g' cx='50%' cy='0%' r='60%'><stop offset='0%' stop-color='rgba(255,230,160,0.55)'/><stop offset='100%' stop-color='rgba(255,230,160,0)'/></radialGradient></defs><rect width='40' height='12' fill='url(%23g)'/><circle cx='8' cy='30' r='1.2' fill='rgba(255,210,100,0.75)'/><circle cx='31' cy='33' r='1' fill='rgba(255,170,60,0.7)'/><circle cx='22' cy='28' r='0.7' fill='rgba(255,240,180,0.7)'/></svg>");
+  background-size: 100% 100%;
+  mix-blend-mode: screen;
+  opacity: 0.85;
+}
+
+/* ---------- Abyssal Reef ---------- */
+html[data-world-theme='abyssal'] {
+  --paper: #0e2540;
+  --paper-2: #143154;
+  --paper-3: #0a1b30;
+  --ink: #dbefe3;
+  --ink-2: #a5cadd;
+  --ink-3: #5d86a0;
+  --tomato: #ff7a8a;
+  --mustard: #ffcf6b;
+  --olive: #4ed0a5;
+  --sky: #4acde6;
+  --plum: #b865d6;
+  --cream-tile: #cfe5e2;
+}
+html[data-world-theme='abyssal'] body::before {
+  background:
+    linear-gradient(180deg, rgba(120, 220, 255, 0.25) 0%, rgba(20, 60, 110, 0.1) 35%, transparent 60%),
+    linear-gradient(180deg, #0a1a30 0%, #081528 60%, #040c1a 100%),
+    url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='180' height='180'><g fill='none' stroke='rgba(120,220,255,0.22)' stroke-width='1'><circle cx='30' cy='40' r='5'/><circle cx='110' cy='80' r='3'/><circle cx='70' cy='140' r='7'/><circle cx='150' cy='30' r='2'/><circle cx='40' cy='120' r='4'/></g></svg>");
+  background-size: cover, cover, 240px 240px;
+}
+html[data-world-theme='abyssal'] .board {
+  background: var(--paper-3);
+  border-color: #4acde6;
+  box-shadow: 6px 6px 0 0 #04101f, inset 0 0 0 2px rgba(74, 205, 230, 0.5), inset 0 0 20px rgba(74, 205, 230, 0.2);
+}
+html[data-world-theme='abyssal'] .board-grid .cell {
+  border-color: rgba(180, 230, 240, 0.18);
+  background: #122944;
+}
+html[data-world-theme='abyssal'] .board-grid .cell.filled,
+html[data-world-theme='abyssal'] .tp-cell:not(.empty) {
+  box-shadow: 2px 2px 0 0 var(--ink), inset 0 0 8px rgba(74, 205, 230, 0.35),
+    inset 0 -2px 0 rgba(184, 101, 214, 0.3), inset 0 1px 0 rgba(220, 240, 250, 0.25);
+}
+html[data-world-theme='abyssal'] .board-grid .cell.filled:not(.bomb)::before,
+html[data-world-theme='abyssal'] .tp-cell:not(.empty):not(.bomb)::before {
+  background-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 40 40' preserveAspectRatio='none'><g stroke='rgba(255,120,160,0.7)' stroke-width='1.4' stroke-linecap='round' fill='none'><path d='M6 34 C6 28 8 24 6 20 M6 24 L3 22 M6 28 L9 26 M6 20 L4 17'/><path d='M32 36 C32 30 34 26 33 22 C32 18 34 14 33 10 M33 28 L36 26 M33 22 L30 20 M33 14 L36 12'/></g><g stroke='rgba(94,210,170,0.65)' stroke-width='1.2' stroke-linecap='round' fill='none'><path d='M14 38 C14 32 16 28 14 22 C12 18 14 14 14 8 M14 30 L17 28 M14 22 L11 20 M14 14 L17 12'/><path d='M24 40 C24 34 22 30 24 24 M24 32 L21 30 M24 26 L27 24'/></g><g fill='rgba(255,210,140,0.55)' stroke='rgba(255,180,120,0.7)' stroke-width='0.4'><circle cx='8' cy='12' r='1.5'/><circle cx='11' cy='10' r='1.2'/><circle cx='10' cy='13' r='1'/><circle cx='28' cy='8' r='1.3'/><circle cx='30' cy='10' r='1.1'/></g></svg>");
+  mix-blend-mode: soft-light;
+  opacity: 0.9;
+}
+html[data-world-theme='abyssal'] .board-grid .cell.filled::after,
+html[data-world-theme='abyssal'] .tp-cell:not(.empty)::after {
+  background-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 40 40' preserveAspectRatio='none'><defs><linearGradient id='r' x1='0' y1='0' x2='0' y2='1'><stop offset='0%' stop-color='rgba(120,230,255,0.55)'/><stop offset='100%' stop-color='rgba(120,230,255,0)'/></linearGradient></defs><rect width='40' height='8' fill='url(%23r)'/><circle cx='20' cy='15' r='2.4' fill='none' stroke='rgba(255,255,255,0.6)' stroke-width='0.8'/><circle cx='24' cy='12' r='1.6' fill='none' stroke='rgba(255,255,255,0.55)' stroke-width='0.7'/><circle cx='22' cy='17' r='1' fill='rgba(255,255,255,0.7)'/><circle cx='26' cy='14' r='0.7' fill='rgba(255,255,255,0.75)'/></svg>");
+  background-size: 100% 100%;
+  mix-blend-mode: screen;
+  opacity: 0.85;
+}
+
+/* ---------- Sakura Garden ---------- */
+html[data-world-theme='sakura'] {
+  --paper: #fae5e5;
+  --paper-2: #f1cfcf;
+  --paper-3: #c48b6a;
+  --ink: #3a1f28;
+  --ink-2: #5a3540;
+  --ink-3: #8a6b74;
+  --tomato: #c73a4a;
+  --mustard: #e6c34a;
+  --olive: #5b9a5e;
+  --sky: #7ab0d2;
+  --plum: #c25a8d;
+  --cream-tile: #f2dccc;
+}
+html[data-world-theme='sakura'] body::before {
+  background:
+    linear-gradient(180deg, #fdeef0 0%, #f8dde0 55%, #f0cdd0 100%),
+    url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='200' height='200'><g fill='rgba(194,90,141,0.22)'><ellipse cx='30' cy='40' rx='3' ry='5' transform='rotate(20 30 40)'/><ellipse cx='110' cy='80' rx='3' ry='5' transform='rotate(-30 110 80)'/><ellipse cx='170' cy='30' rx='3' ry='5' transform='rotate(45 170 30)'/><ellipse cx='60' cy='150' rx='3' ry='5' transform='rotate(-10 60 150)'/><ellipse cx='150' cy='170' rx='3' ry='5' transform='rotate(60 150 170)'/></g></svg>");
+  background-size: cover, 260px 260px;
+}
+html[data-world-theme='sakura'] .board {
+  background: var(--paper-3);
+  border-color: #5a3a28;
+  box-shadow: 6px 6px 0 0 #5a3a28;
+  background-image: repeating-linear-gradient(90deg, rgba(90, 60, 40, 0.18) 0 1px, transparent 1px 60px);
+}
+html[data-world-theme='sakura'] .board-grid .cell {
+  border-color: rgba(250, 230, 220, 0.35);
+}
+html[data-world-theme='sakura'] .board-grid .cell.filled::after,
+html[data-world-theme='sakura'] .tp-cell:not(.empty)::after {
+  background-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 40 40'><g fill='rgba(58,31,40,0.28)'><ellipse cx='20' cy='10' rx='3.2' ry='6'/><ellipse cx='28' cy='17' rx='3.2' ry='6' transform='rotate(72 28 17)'/><ellipse cx='26' cy='28' rx='3.2' ry='6' transform='rotate(144 26 28)'/><ellipse cx='14' cy='28' rx='3.2' ry='6' transform='rotate(216 14 28)'/><ellipse cx='12' cy='17' rx='3.2' ry='6' transform='rotate(288 12 17)'/></g><circle cx='20' cy='20' r='2.4' fill='rgba(230,195,74,0.7)'/></svg>");
+}
+
+/* ---------- Arctic Aurora ---------- */
+html[data-world-theme='arctic'] {
+  --paper: #eaf3f7;
+  --paper-2: #d4e3eb;
+  --paper-3: #2a4560;
+  --ink: #1a2a3e;
+  --ink-2: #3e5573;
+  --ink-3: #6a82a0;
+  --tomato: #6ec5a0;
+  --mustard: #c8a4e0;
+  --olive: #4aa095;
+  --sky: #5ba4da;
+  --plum: #8462b8;
+  --cream-tile: #d6e5ee;
+}
+html[data-world-theme='arctic'] body::before {
+  background:
+    linear-gradient(180deg, rgba(110, 197, 160, 0.45) 0%, rgba(132, 98, 184, 0.3) 35%, rgba(91, 164, 218, 0.2) 60%, rgba(30, 50, 80, 0) 100%),
+    linear-gradient(180deg, #d4e3eb 0%, #b4c9d8 60%, #8fadc0 100%),
+    url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='160' height='160'><g fill='rgba(255,255,255,0.55)'><circle cx='20' cy='30' r='1'/><circle cx='80' cy='10' r='1.2'/><circle cx='140' cy='60' r='1'/><circle cx='40' cy='90' r='1.1'/><circle cx='110' cy='120' r='0.9'/><circle cx='60' cy='140' r='1'/></g></svg>");
+  background-size: cover, cover, 200px 200px;
+}
+html[data-world-theme='arctic'] .board {
+  background: linear-gradient(180deg, rgba(255, 255, 255, 0.12), rgba(255, 255, 255, 0.04)), var(--paper-3);
+  border-color: #142538;
+  box-shadow: 6px 6px 0 0 #142538, inset 0 0 0 2px rgba(255, 255, 255, 0.35);
+}
+html[data-world-theme='arctic'] .board-grid .cell {
+  border-color: rgba(255, 255, 255, 0.3);
+  background: rgba(212, 227, 235, 0.25);
+}
+html[data-world-theme='arctic'] .board-grid .cell.filled::after,
+html[data-world-theme='arctic'] .tp-cell:not(.empty)::after {
+  background-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 40 40'><g stroke='rgba(255,255,255,0.55)' stroke-width='1.2' fill='none'><line x1='20' y1='6' x2='20' y2='34'/><line x1='6' y1='20' x2='34' y2='20'/><line x1='10' y1='10' x2='30' y2='30'/><line x1='30' y1='10' x2='10' y2='30'/><line x1='15' y1='9' x2='25' y2='9'/><line x1='15' y1='31' x2='25' y2='31'/></g></svg>");
+  background-size: 80% 80%;
+}
+
+/* ---------- Desert Glyph ---------- */
+html[data-world-theme='desert'] {
+  --paper: #f3e3c5;
+  --paper-2: #e4cea5;
+  --paper-3: #a8825a;
+  --ink: #3a251a;
+  --ink-2: #5a3b28;
+  --ink-3: #8a6c4e;
+  --tomato: #c85236;
+  --mustard: #e6aa3c;
+  --olive: #8a8a4a;
+  --sky: #3ea0a0;
+  --plum: #a65a52;
+  --cream-tile: #e8d4a8;
+}
+html[data-world-theme='desert'] body::before {
+  background:
+    linear-gradient(180deg, #fae7c2 0%, #e6caa0 55%, #c09770 100%),
+    url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='120' height='120'><filter id='n'><feTurbulence baseFrequency='0.9' numOctaves='2'/><feColorMatrix values='0 0 0 0 0.4 0 0 0 0 0.28 0 0 0 0 0.16 0 0 0 0.45 0'/></filter><rect width='120' height='120' filter='url(%23n)'/></svg>");
+  background-size: cover, 160px 160px;
+}
+html[data-world-theme='desert'] .board {
+  background: linear-gradient(180deg, #b8905a 0%, #8a6840 100%);
+  border-color: #3a251a;
+  box-shadow: 6px 6px 0 0 #3a251a, inset 0 0 0 3px rgba(230, 170, 60, 0.4);
+}
+html[data-world-theme='desert'] .board-grid .cell {
+  border-color: rgba(58, 37, 26, 0.22);
+  background: rgba(228, 206, 165, 0.5);
+}
+html[data-world-theme='desert'] .board-grid .cell.filled::after,
+html[data-world-theme='desert'] .tp-cell:not(.empty)::after {
+  background-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 40 40'><g stroke='rgba(58,37,26,0.4)' stroke-width='2' fill='none' stroke-linecap='round'><circle cx='20' cy='14' r='5'/><line x1='20' y1='19' x2='20' y2='32'/><line x1='13' y1='24' x2='27' y2='24'/></g></svg>");
+}
+
+/* ---------- Cosmic Drift ---------- */
+html[data-world-theme='cosmic'] {
+  --paper: #0e0c24;
+  --paper-2: #15143a;
+  --paper-3: #060515;
+  --ink: #e8e5ff;
+  --ink-2: #a8a2e5;
+  --ink-3: #6a648e;
+  --tomato: #ff4a9e;
+  --mustard: #ffd45a;
+  --olive: #6aea8c;
+  --sky: #4ac9ff;
+  --plum: #a260ff;
+  --cream-tile: #d8d2ff;
+}
+html[data-world-theme='cosmic'] body::before {
+  background:
+    radial-gradient(ellipse at 30% 40%, rgba(162, 96, 255, 0.28), transparent 55%),
+    radial-gradient(ellipse at 75% 70%, rgba(74, 201, 255, 0.22), transparent 55%),
+    linear-gradient(180deg, #06041a 0%, #0a082a 60%, #050316 100%),
+    url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='220' height='220'><g fill='rgba(255,255,255,0.8)'><circle cx='10' cy='20' r='0.8'/><circle cx='50' cy='60' r='0.6'/><circle cx='120' cy='30' r='1'/><circle cx='180' cy='90' r='0.7'/><circle cx='30' cy='120' r='0.9'/><circle cx='90' cy='160' r='0.6'/><circle cx='160' cy='180' r='1.1'/><circle cx='200' cy='140' r='0.5'/><circle cx='70' cy='200' r='0.8'/><circle cx='140' cy='70' r='0.5'/></g></svg>");
+  background-size: cover, cover, cover, 300px 300px;
+}
+html[data-world-theme='cosmic'] .board {
+  background: var(--paper-3);
+  border-color: #2a2660;
+  box-shadow: 6px 6px 0 0 #020108, inset 0 0 0 2px rgba(162, 96, 255, 0.4), inset 0 0 30px rgba(74, 201, 255, 0.18);
+}
+html[data-world-theme='cosmic'] .board-grid .cell {
+  border-color: rgba(168, 162, 229, 0.18);
+  background: #0d0b26;
+}
+html[data-world-theme='cosmic'] .board-grid .cell.filled,
+html[data-world-theme='cosmic'] .tp-cell:not(.empty) {
+  box-shadow: 2px 2px 0 0 var(--ink), inset 0 0 10px rgba(162, 96, 255, 0.38), inset 0 0 0 1px rgba(232, 229, 255, 0.18), 0 0 8px rgba(74, 201, 255, 0.22);
+}
+html[data-world-theme='cosmic'] .board-grid .cell.filled:not(.bomb)::before,
+html[data-world-theme='cosmic'] .tp-cell:not(.empty):not(.bomb)::before {
+  background-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 40 40' preserveAspectRatio='none'><defs><radialGradient id='n' cx='30%' cy='30%' r='75%'><stop offset='0%' stop-color='rgba(162,96,255,0.55)'/><stop offset='45%' stop-color='rgba(74,201,255,0.25)'/><stop offset='100%' stop-color='rgba(0,0,0,0)'/></radialGradient><radialGradient id='m' cx='80%' cy='78%' r='60%'><stop offset='0%' stop-color='rgba(255,74,158,0.4)'/><stop offset='100%' stop-color='rgba(255,74,158,0)'/></radialGradient></defs><rect width='40' height='40' fill='url(%23n)'/><rect width='40' height='40' fill='url(%23m)'/><g fill='rgba(255,255,255,0.95)'><circle cx='8' cy='10' r='0.7'/><circle cx='22' cy='6' r='0.5'/><circle cx='32' cy='14' r='0.6'/><circle cx='14' cy='22' r='0.45'/><circle cx='28' cy='26' r='0.55'/><circle cx='6' cy='30' r='0.5'/><circle cx='34' cy='34' r='0.4'/><circle cx='18' cy='34' r='0.35'/></g><g fill='rgba(255,255,255,0.5)'><circle cx='12' cy='16' r='0.25'/><circle cx='26' cy='18' r='0.3'/><circle cx='20' cy='28' r='0.25'/><circle cx='36' cy='8' r='0.25'/></g></svg>");
+  mix-blend-mode: screen;
+  opacity: 0.95;
+}
+html[data-world-theme='cosmic'] .board-grid .cell.filled::after,
+html[data-world-theme='cosmic'] .tp-cell:not(.empty)::after {
+  background-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 40 40' preserveAspectRatio='none'><defs><radialGradient id='s' cx='30%' cy='25%' r='55%'><stop offset='0%' stop-color='rgba(255,255,255,0.85)'/><stop offset='40%' stop-color='rgba(255,255,255,0.28)'/><stop offset='100%' stop-color='rgba(255,255,255,0)'/></radialGradient></defs><circle cx='12' cy='10' r='14' fill='url(%23s)'/><g fill='rgba(255,255,255,0.9)'><path d='M30 6 L30.4 8 L32 8 L30.6 9 L31 11 L30 10 L29 11 L29.4 9 L28 8 L29.6 8 Z'/></g></svg>");
+  background-size: 100% 100%;
+  mix-blend-mode: screen;
+  opacity: 0.95;
+}
+
+/* ---------- Haunted Manor ---------- */
+html[data-world-theme='haunted'] {
+  --paper: #1a1a24;
+  --paper-2: #262636;
+  --paper-3: #14141c;
+  --ink: #e8e2d4;
+  --ink-2: #b6ad98;
+  --ink-3: #7a7262;
+  --tomato: #c23a3a;
+  --mustard: #e8a838;
+  --olive: #5a7560;
+  --sky: #5c6b82;
+  --plum: #6a3a6c;
+  --cream-tile: #c2bcae;
+}
+html[data-world-theme='haunted'] body::before {
+  background:
+    radial-gradient(ellipse at 50% 80%, rgba(232, 168, 56, 0.2), transparent 45%),
+    linear-gradient(180deg, #0a0a14 0%, #16161f 40%, #20202c 70%, #14141c 100%),
+    url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='200' height='200'><filter id='f'><feTurbulence baseFrequency='0.015' numOctaves='2'/><feColorMatrix values='0 0 0 0 0.82 0 0 0 0 0.8 0 0 0 0 0.76 0 0 0 0.18 0'/></filter><rect width='200' height='200' filter='url(%23f)'/></svg>");
+  background-size: cover, cover, 400px 400px;
+}
+html[data-world-theme='haunted'] .board {
+  background: var(--paper-3);
+  border-color: #3a3a4a;
+  box-shadow: 6px 6px 0 0 #08080c, inset 0 0 0 2px rgba(232, 226, 212, 0.15), inset 0 0 0 4px #14141c;
+}
+html[data-world-theme='haunted'] .board-grid .cell {
+  border-color: rgba(232, 226, 212, 0.14);
+  background: #1c1c28;
+}
+html[data-world-theme='haunted'] .board-grid .cell.filled::after,
+html[data-world-theme='haunted'] .tp-cell:not(.empty)::after {
+  background-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 40 40'><path d='M20 6 C18 13 14 17 14 24 C14 30 17 34 20 34 C23 34 26 30 26 24 C26 17 22 13 20 6 Z' fill='rgba(255,190,90,0.42)'/><ellipse cx='20' cy='22' rx='2' ry='4' fill='rgba(255,230,160,0.55)'/></svg>");
+  background-size: 66% 78%;
+}
+
+/* ---------- Neon Grid ---------- */
+html[data-world-theme='neon'] {
+  --paper: #0a0f1f;
+  --paper-2: #121a2f;
+  --paper-3: #050814;
+  --ink: #d6eaff;
+  --ink-2: #8ca8c8;
+  --ink-3: #5070a0;
+  --tomato: #ff2eb7;
+  --mustard: #faff3a;
+  --olive: #38ff7c;
+  --sky: #2ee9ff;
+  --plum: #c052ff;
+  --cream-tile: #80e0ff;
+}
+html[data-world-theme='neon'] body::before {
+  background:
+    radial-gradient(ellipse at 50% 100%, rgba(46, 233, 255, 0.22), transparent 55%),
+    radial-gradient(ellipse at 20% 10%, rgba(255, 46, 183, 0.2), transparent 55%),
+    linear-gradient(180deg, #06091a 0%, #0a1124 70%, #040610 100%),
+    repeating-linear-gradient(0deg, rgba(46, 233, 255, 0.07) 0 1px, transparent 1px 3px);
+  background-size: cover, cover, cover, 100% 4px;
+}
+html[data-world-theme='neon'] .board {
+  background: var(--paper-3);
+  border-color: #2ee9ff;
+  box-shadow: 0 0 0 2px #0a0f1f, 0 0 24px rgba(46, 233, 255, 0.45), 6px 6px 0 0 #02040b, inset 0 0 0 2px rgba(192, 82, 255, 0.3);
+}
+html[data-world-theme='neon'] .board-grid .cell {
+  border-color: rgba(46, 233, 255, 0.28);
+  border-style: solid;
+  background: #080d1e;
+  box-shadow: inset 0 0 0 1px rgba(192, 82, 255, 0.08);
+}
+html[data-world-theme='neon'] .board-grid .cell.filled {
+  box-shadow: 2px 2px 0 0 var(--ink), 0 0 10px rgba(46, 233, 255, 0.35);
+}
+html[data-world-theme='neon'] .board-grid .cell.filled::after,
+html[data-world-theme='neon'] .tp-cell:not(.empty)::after {
+  background-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 40 40'><rect x='4' y='4' width='32' height='32' rx='3' fill='none' stroke='rgba(255,255,255,0.6)' stroke-width='1.6'/></svg>");
+  background-size: 100% 100%;
+}
+
+/* ---------- Retro Arcade ---------- */
+html[data-world-theme='arcade'] {
+  --paper: #0b0b0b;
+  --paper-2: #141414;
+  --paper-3: #0a1a0a;
+  --ink: #5effa0;
+  --ink-2: #3ee080;
+  --ink-3: #2a9060;
+  --tomato: #ff3a6e;
+  --mustard: #ffd728;
+  --olive: #5effa0;
+  --sky: #3ab4ff;
+  --plum: #c83ae0;
+  --cream-tile: #f8f8f8;
+  --r-sm: 0px;
+}
+html[data-world-theme='arcade'] body::before {
+  background:
+    radial-gradient(ellipse at 50% 50%, rgba(94, 255, 160, 0.14), transparent 65%),
+    linear-gradient(180deg, #050a05 0%, #0a140a 50%, #050a05 100%),
+    repeating-linear-gradient(0deg, rgba(94, 255, 160, 0.09) 0 1px, transparent 1px 3px);
+  background-size: cover, cover, 100% 3px;
+}
+html[data-world-theme='arcade'] .board {
+  background: var(--paper-3);
+  border-color: #5effa0;
+  border-width: 4px;
+  border-radius: 6px;
+  box-shadow: 0 0 0 4px #0a1a0a, 0 0 18px rgba(94, 255, 160, 0.4), 6px 6px 0 0 #020a02;
+}
+html[data-world-theme='arcade'] .board-grid .cell {
+  border-color: rgba(94, 255, 160, 0.22);
+  border-style: solid;
+  border-radius: 0;
+  background: #081608;
+}
+html[data-world-theme='arcade'] .board-grid .cell.filled {
+  border-radius: 0;
+}
+html[data-world-theme='arcade'] .tp-cell:not(.empty) {
+  border-radius: 0;
+}
+html[data-world-theme='arcade'] .board-grid .cell.filled::after,
+html[data-world-theme='arcade'] .tp-cell:not(.empty)::after {
+  background-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 40 40'><rect x='0' y='0' width='40' height='4' fill='rgba(255,255,255,0.4)'/><rect x='0' y='0' width='4' height='40' fill='rgba(255,255,255,0.4)'/><rect x='0' y='36' width='40' height='4' fill='rgba(0,0,0,0.55)'/><rect x='36' y='0' width='4' height='40' fill='rgba(0,0,0,0.55)'/></svg>");
+  background-size: 100% 100%;
+}
+
+/* ============================================================
+   WORLD THEME PIXEL TILES
+   Generated per theme by scripts/tiles-<theme>.mjs and committed
+   to public/tiles/<theme>/<color>.png (64×64 RGBA). Each tile
+   paints the whole cell — opaque, material-correct, pixel art —
+   via the ::before pseudo-element. The shared ::after glyph from
+   each theme keeps rendering on top as a subtle symbol overlay.
+
+   Selector specificity is 1 class higher than the generic
+   ::before rule earlier in this file, so these win cleanly
+   through the cascade without !important.
+
+   Regenerate: `npm run tiles`.
+   ============================================================ */
+html[data-world-theme='jungle'] .board-grid .cell.filled:is(.fill-tomato, .fill-mustard, .fill-olive, .fill-sky, .fill-plum, .fill-cream):not(.bomb)::before,
+html[data-world-theme='jungle'] .tp-cell:is(.fill-tomato, .fill-mustard, .fill-olive, .fill-sky, .fill-plum, .fill-cream):not(.empty):not(.bomb)::before,
+html[data-world-theme='volcano'] .board-grid .cell.filled:is(.fill-tomato, .fill-mustard, .fill-olive, .fill-sky, .fill-plum, .fill-cream):not(.bomb)::before,
+html[data-world-theme='volcano'] .tp-cell:is(.fill-tomato, .fill-mustard, .fill-olive, .fill-sky, .fill-plum, .fill-cream):not(.empty):not(.bomb)::before,
+html[data-world-theme='abyssal'] .board-grid .cell.filled:is(.fill-tomato, .fill-mustard, .fill-olive, .fill-sky, .fill-plum, .fill-cream):not(.bomb)::before,
+html[data-world-theme='abyssal'] .tp-cell:is(.fill-tomato, .fill-mustard, .fill-olive, .fill-sky, .fill-plum, .fill-cream):not(.empty):not(.bomb)::before,
+html[data-world-theme='sakura'] .board-grid .cell.filled:is(.fill-tomato, .fill-mustard, .fill-olive, .fill-sky, .fill-plum, .fill-cream):not(.bomb)::before,
+html[data-world-theme='sakura'] .tp-cell:is(.fill-tomato, .fill-mustard, .fill-olive, .fill-sky, .fill-plum, .fill-cream):not(.empty):not(.bomb)::before,
+html[data-world-theme='arctic'] .board-grid .cell.filled:is(.fill-tomato, .fill-mustard, .fill-olive, .fill-sky, .fill-plum, .fill-cream):not(.bomb)::before,
+html[data-world-theme='arctic'] .tp-cell:is(.fill-tomato, .fill-mustard, .fill-olive, .fill-sky, .fill-plum, .fill-cream):not(.empty):not(.bomb)::before,
+html[data-world-theme='desert'] .board-grid .cell.filled:is(.fill-tomato, .fill-mustard, .fill-olive, .fill-sky, .fill-plum, .fill-cream):not(.bomb)::before,
+html[data-world-theme='desert'] .tp-cell:is(.fill-tomato, .fill-mustard, .fill-olive, .fill-sky, .fill-plum, .fill-cream):not(.empty):not(.bomb)::before,
+html[data-world-theme='haunted'] .board-grid .cell.filled:is(.fill-tomato, .fill-mustard, .fill-olive, .fill-sky, .fill-plum, .fill-cream):not(.bomb)::before,
+html[data-world-theme='haunted'] .tp-cell:is(.fill-tomato, .fill-mustard, .fill-olive, .fill-sky, .fill-plum, .fill-cream):not(.empty):not(.bomb)::before,
+html[data-world-theme='neon'] .board-grid .cell.filled:is(.fill-tomato, .fill-mustard, .fill-olive, .fill-sky, .fill-plum, .fill-cream):not(.bomb)::before,
+html[data-world-theme='neon'] .tp-cell:is(.fill-tomato, .fill-mustard, .fill-olive, .fill-sky, .fill-plum, .fill-cream):not(.empty):not(.bomb)::before,
+html[data-world-theme='arcade'] .board-grid .cell.filled:is(.fill-tomato, .fill-mustard, .fill-olive, .fill-sky, .fill-plum, .fill-cream):not(.bomb)::before,
+html[data-world-theme='arcade'] .tp-cell:is(.fill-tomato, .fill-mustard, .fill-olive, .fill-sky, .fill-plum, .fill-cream):not(.empty):not(.bomb)::before {
+  mix-blend-mode: normal;
+  opacity: 1;
+  background-size: 100% 100%;
+  background-repeat: no-repeat;
+  image-rendering: pixelated;
+  image-rendering: crisp-edges;
+}
+
+/* Per-theme, per-color tile PNG. One line per (theme, color). */
+html[data-world-theme='jungle']  .fill-tomato::before  { background-image: url('/tiles/jungle/tomato.png')   !important; }
+html[data-world-theme='jungle']  .fill-mustard::before { background-image: url('/tiles/jungle/mustard.png')  !important; }
+html[data-world-theme='jungle']  .fill-olive::before   { background-image: url('/tiles/jungle/olive.png')    !important; }
+html[data-world-theme='jungle']  .fill-sky::before     { background-image: url('/tiles/jungle/sky.png')      !important; }
+html[data-world-theme='jungle']  .fill-plum::before    { background-image: url('/tiles/jungle/plum.png')     !important; }
+html[data-world-theme='jungle']  .fill-cream::before   { background-image: url('/tiles/jungle/cream.png')    !important; }
+
+html[data-world-theme='volcano'] .fill-tomato::before  { background-image: url('/tiles/volcano/tomato.png')  !important; }
+html[data-world-theme='volcano'] .fill-mustard::before { background-image: url('/tiles/volcano/mustard.png') !important; }
+html[data-world-theme='volcano'] .fill-olive::before   { background-image: url('/tiles/volcano/olive.png')   !important; }
+html[data-world-theme='volcano'] .fill-sky::before     { background-image: url('/tiles/volcano/sky.png')     !important; }
+html[data-world-theme='volcano'] .fill-plum::before    { background-image: url('/tiles/volcano/plum.png')    !important; }
+html[data-world-theme='volcano'] .fill-cream::before   { background-image: url('/tiles/volcano/cream.png')   !important; }
+
+html[data-world-theme='abyssal'] .fill-tomato::before  { background-image: url('/tiles/abyssal/tomato.png')  !important; }
+html[data-world-theme='abyssal'] .fill-mustard::before { background-image: url('/tiles/abyssal/mustard.png') !important; }
+html[data-world-theme='abyssal'] .fill-olive::before   { background-image: url('/tiles/abyssal/olive.png')   !important; }
+html[data-world-theme='abyssal'] .fill-sky::before     { background-image: url('/tiles/abyssal/sky.png')     !important; }
+html[data-world-theme='abyssal'] .fill-plum::before    { background-image: url('/tiles/abyssal/plum.png')    !important; }
+html[data-world-theme='abyssal'] .fill-cream::before   { background-image: url('/tiles/abyssal/cream.png')   !important; }
+
+html[data-world-theme='sakura']  .fill-tomato::before  { background-image: url('/tiles/sakura/tomato.png')   !important; }
+html[data-world-theme='sakura']  .fill-mustard::before { background-image: url('/tiles/sakura/mustard.png')  !important; }
+html[data-world-theme='sakura']  .fill-olive::before   { background-image: url('/tiles/sakura/olive.png')    !important; }
+html[data-world-theme='sakura']  .fill-sky::before     { background-image: url('/tiles/sakura/sky.png')      !important; }
+html[data-world-theme='sakura']  .fill-plum::before    { background-image: url('/tiles/sakura/plum.png')     !important; }
+html[data-world-theme='sakura']  .fill-cream::before   { background-image: url('/tiles/sakura/cream.png')    !important; }
+
+html[data-world-theme='arctic']  .fill-tomato::before  { background-image: url('/tiles/arctic/tomato.png')   !important; }
+html[data-world-theme='arctic']  .fill-mustard::before { background-image: url('/tiles/arctic/mustard.png')  !important; }
+html[data-world-theme='arctic']  .fill-olive::before   { background-image: url('/tiles/arctic/olive.png')    !important; }
+html[data-world-theme='arctic']  .fill-sky::before     { background-image: url('/tiles/arctic/sky.png')      !important; }
+html[data-world-theme='arctic']  .fill-plum::before    { background-image: url('/tiles/arctic/plum.png')     !important; }
+html[data-world-theme='arctic']  .fill-cream::before   { background-image: url('/tiles/arctic/cream.png')    !important; }
+
+html[data-world-theme='desert']  .fill-tomato::before  { background-image: url('/tiles/desert/tomato.png')   !important; }
+html[data-world-theme='desert']  .fill-mustard::before { background-image: url('/tiles/desert/mustard.png')  !important; }
+html[data-world-theme='desert']  .fill-olive::before   { background-image: url('/tiles/desert/olive.png')    !important; }
+html[data-world-theme='desert']  .fill-sky::before     { background-image: url('/tiles/desert/sky.png')      !important; }
+html[data-world-theme='desert']  .fill-plum::before    { background-image: url('/tiles/desert/plum.png')     !important; }
+html[data-world-theme='desert']  .fill-cream::before   { background-image: url('/tiles/desert/cream.png')    !important; }
+
+html[data-world-theme='haunted'] .fill-tomato::before  { background-image: url('/tiles/haunted/tomato.png')  !important; }
+html[data-world-theme='haunted'] .fill-mustard::before { background-image: url('/tiles/haunted/mustard.png') !important; }
+html[data-world-theme='haunted'] .fill-olive::before   { background-image: url('/tiles/haunted/olive.png')   !important; }
+html[data-world-theme='haunted'] .fill-sky::before     { background-image: url('/tiles/haunted/sky.png')     !important; }
+html[data-world-theme='haunted'] .fill-plum::before    { background-image: url('/tiles/haunted/plum.png')    !important; }
+html[data-world-theme='haunted'] .fill-cream::before   { background-image: url('/tiles/haunted/cream.png')   !important; }
+
+html[data-world-theme='neon']    .fill-tomato::before  { background-image: url('/tiles/neon/tomato.png')     !important; }
+html[data-world-theme='neon']    .fill-mustard::before { background-image: url('/tiles/neon/mustard.png')    !important; }
+html[data-world-theme='neon']    .fill-olive::before   { background-image: url('/tiles/neon/olive.png')      !important; }
+html[data-world-theme='neon']    .fill-sky::before     { background-image: url('/tiles/neon/sky.png')        !important; }
+html[data-world-theme='neon']    .fill-plum::before    { background-image: url('/tiles/neon/plum.png')       !important; }
+html[data-world-theme='neon']    .fill-cream::before   { background-image: url('/tiles/neon/cream.png')      !important; }
+
+html[data-world-theme='arcade']  .fill-tomato::before  { background-image: url('/tiles/arcade/tomato.png')   !important; }
+html[data-world-theme='arcade']  .fill-mustard::before { background-image: url('/tiles/arcade/mustard.png')  !important; }
+html[data-world-theme='arcade']  .fill-olive::before   { background-image: url('/tiles/arcade/olive.png')    !important; }
+html[data-world-theme='arcade']  .fill-sky::before     { background-image: url('/tiles/arcade/sky.png')      !important; }
+html[data-world-theme='arcade']  .fill-plum::before    { background-image: url('/tiles/arcade/plum.png')     !important; }
+html[data-world-theme='arcade']  .fill-cream::before   { background-image: url('/tiles/arcade/cream.png')    !important; }
+
+/* ---------- Chrome retunes (world-theme scoped) ----------
+   Several surface accents hard-code specific token roles (e.g.
+   .live-chip uses --olive, .toast uses --mustard). For themes
+   where that reads poorly, we swap the backing color here so the
+   chrome stays legible without touching base styles. */
+
+/* Neon: live-chip glows cyan, not lime green. */
+html[data-world-theme='neon'] .live-chip {
+  background: var(--sky);
+  color: #020614;
+  box-shadow: 2px 2px 0 0 var(--ink), 0 0 10px rgba(46, 233, 255, 0.5);
+}
+html[data-world-theme='neon'] .mode-pill {
+  background: var(--tomato);
+  color: #fff;
+  box-shadow: 2px 2px 0 0 var(--ink), 0 0 8px rgba(255, 46, 183, 0.45);
+}
+html[data-world-theme='neon'] .score-popup {
+  background: var(--tomato);
+  color: #fff;
+  box-shadow: var(--shadow-lg), 0 0 16px rgba(255, 46, 183, 0.5);
+}
+html[data-world-theme='neon'] .toast {
+  background: var(--mustard);
+  color: #111;
+}
+
+/* Arcade: pixel-crisp chrome — no rounded corners on chips. */
+html[data-world-theme='arcade'] .live-chip,
+html[data-world-theme='arcade'] .mode-pill,
+html[data-world-theme='arcade'] .score-popup,
+html[data-world-theme='arcade'] .toast {
+  border-radius: 2px;
+}
+html[data-world-theme='arcade'] .live-chip {
+  background: var(--sky);
+  color: #000;
+}
+html[data-world-theme='arcade'] .mode-pill {
+  background: var(--tomato);
+  color: #fff;
+}
+html[data-world-theme='arcade'] .score-popup {
+  background: var(--tomato);
+  color: #fff;
+}
+
+/* Volcano: live-chip reads as cooled basalt, not bright green. */
+html[data-world-theme='volcano'] .live-chip {
+  background: var(--tomato);
+  color: #fff;
+}
+html[data-world-theme='volcano'] .toast {
+  background: var(--mustard);
+  color: #2a140a;
+}
+
+/* Cosmic: live-chip glows magenta, toast is starlight. */
+html[data-world-theme='cosmic'] .live-chip {
+  background: var(--plum);
+  color: #fff;
+  box-shadow: 2px 2px 0 0 var(--ink), 0 0 12px rgba(162, 96, 255, 0.5);
+}
+html[data-world-theme='cosmic'] .mode-pill {
+  background: var(--tomato);
+  color: #fff;
+}
+html[data-world-theme='cosmic'] .toast {
+  background: var(--mustard);
+  color: #12102a;
+}
+
+/* Haunted: live-chip is cold moss on bone ink. */
+html[data-world-theme='haunted'] .live-chip {
+  background: var(--olive);
+  color: var(--ink);
+}
+html[data-world-theme='haunted'] .toast {
+  background: var(--mustard);
+  color: #1a1a24;
+}
+html[data-world-theme='haunted'] .mode-pill {
+  background: var(--tomato);
+  color: var(--ink);
+}
+
+/* Abyssal: live-chip glows bioluminescent cyan. */
+html[data-world-theme='abyssal'] .live-chip {
+  background: var(--sky);
+  color: #041220;
+}
+html[data-world-theme='abyssal'] .toast {
+  background: var(--mustard);
+  color: #0a1a2a;
+}
+
+/* Arctic: tint surfaces with frosted paper for legibility on the
+   vivid aurora backdrop. */
+html[data-world-theme='arctic'] .live-chip {
+  background: var(--plum);
+  color: #fff;
+}
+html[data-world-theme='arctic'] .mode-pill {
+  background: var(--tomato);
+  color: #0e1d2a;
+}
+
+/* Sakura: mode-pill becomes lacquer red with cream text. */
+html[data-world-theme='sakura'] .mode-pill {
+  background: var(--tomato);
+  color: #fff;
+}
+html[data-world-theme='sakura'] .toast {
+  background: var(--mustard);
+  color: #3a1f28;
+}
+
+/* Desert: mode-pill keeps terra-cotta against sandy chrome. */
+html[data-world-theme='desert'] .mode-pill {
+  background: var(--tomato);
+  color: #fff;
+}
+
+/* Jungle: live-chip darker moss so it pops on warm stone chrome. */
+html[data-world-theme='jungle'] .live-chip {
+  background: var(--olive);
+  color: #f5ebd2;
+}
+html[data-world-theme='jungle'] .toast {
+  background: var(--mustard);
+  color: #1b2a1a;
+}
+
+/* ---------- Settings preview: world theme cards ----------
+   Consumed by SettingsView.tsx. Each card renders a miniature
+   board with the theme's backdrop, board color, and three sample
+   tiles in the theme's piece colors — giving a much richer glance
+   than a flat swatch. */
+.world-theme-card {
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
+  gap: 8px;
+}
+.world-theme-card .preview {
+  position: relative;
+  width: 100%;
+  aspect-ratio: 16 / 9;
+  border-radius: var(--r-md);
+  border: 2px solid var(--ink);
+  overflow: hidden;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 10px;
+  box-shadow: 2px 2px 0 0 var(--ink);
+}
+.world-theme-card .preview .mini-board {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  grid-template-rows: repeat(3, 1fr);
+  gap: 3px;
+  width: 100%;
+  height: 100%;
+  padding: 6px;
+  border-radius: 4px;
+  border: 1.5px solid var(--ink);
+}
+.world-theme-card .preview .mini-cell {
+  border-radius: 3px;
+  border: 1px solid rgba(0, 0, 0, 0.2);
+}
+.world-theme-card .preview .mini-cell.empty {
+  background: transparent;
+  border-style: dashed;
+  opacity: 0.4;
+}
+.world-theme-card .flavor {
+  font-size: 12px;
+  color: var(--ink-3);
+  font-variation-settings: 'opsz' 14, 'wght' 500;
+}
+.world-theme-subhead {
+  grid-column: 1 / -1;
+  font-size: 11px;
+  font-variation-settings: 'opsz' 9, 'wght' 600;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--ink-3);
+  margin-top: 4px;
+}
