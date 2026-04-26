@@ -11,6 +11,7 @@ import UndoCard from './UndoCard';
 import MiniStats from './MiniStats';
 import AchievementToast from './AchievementToast';
 import GameOverCard from './GameOverCard';
+import ClearEffects from './ClearEffects';
 import PieceShape from '../PieceShape';
 import { useGameStore } from '@/stores/useGameStore';
 import { useSettingsStore } from '@/stores/useSettingsStore';
@@ -22,8 +23,10 @@ import {
   getClearedLines,
   placePiece,
 } from '@/lib/engine/grid';
+import { comboMultiplier } from '@/lib/engine/scoring';
 import type { PieceShape as ShapeT, PieceColor } from '@/lib/types';
 import { playSfx, vibrate, setSessionMuted } from '@/lib/audio/sfx';
+import { isTouchLikeEnvironment } from '@/lib/useTouchLike';
 
 export default function ClassicGame() {
   const hydrated = useGameStore((s) => s.hydrated);
@@ -404,11 +407,7 @@ export default function ClassicGame() {
         return;
       }
       if ((e.key === 'r' || e.key === 'R') && rotationEnabled) {
-        const mobileNoRotate =
-          typeof window !== 'undefined' &&
-          (window.matchMedia('(max-width: 760px)').matches ||
-            window.matchMedia('(pointer: coarse)').matches);
-        if (mobileNoRotate) return;
+        if (isTouchLikeEnvironment()) return;
         e.preventDefault();
         rotateSelected();
         return;
@@ -499,8 +498,7 @@ export default function ClassicGame() {
     { k: 'Perfect', v: run.perfectClears },
   ];
 
-  const comboMultStr = (1 + 0.25 * run.combo).toFixed(2);
-  const comboDisplay = run.combo > 0 ? `×${Math.min(3, Number(comboMultStr)).toFixed(2)}` : '×1.00';
+  const comboDisplay = `×${comboMultiplier(run.combo).toFixed(2)}`;
   const comboOn = Math.min(4, run.combo);
 
   const runDurationMs =
@@ -602,6 +600,7 @@ export default function ClassicGame() {
         </div>
 
         <div className="right-stack">
+          {/* Next up + undos cards temporarily hidden.
           {narrowViewport ? (
             <>
               <NextTrayUndoComboCard
@@ -621,6 +620,8 @@ export default function ClassicGame() {
               <MiniStats rows={miniStatsRows} />
             </>
           )}
+          */}
+          <MiniStats rows={miniStatsRows} />
         </div>
       </div>
 
@@ -646,6 +647,15 @@ export default function ClassicGame() {
           <PieceShape shape={activePiece.shape} color={activePiece.color} size="board" />
         </div>
       )}
+
+      <ClearEffects
+        board={run.board}
+        clearingBoard={clearingBoard}
+        clearingRows={clearingRows}
+        clearingCols={clearingCols}
+        combo={run.combo}
+        boardWrapRef={trayWrapRef}
+      />
 
       {run.gameOver && (
         <GameOverCard

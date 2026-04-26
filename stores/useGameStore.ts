@@ -23,18 +23,14 @@ import {
   placePiece,
 } from '@/lib/engine/grid';
 import { scoreTurn } from '@/lib/engine/scoring';
-import {
-  buildBag,
-  drawTray,
-  drawOne,
-  makeRng,
-} from '@/lib/engine/bag';
+import { generateSolvableBatch } from '@/lib/engine/trayGen';
 import { pieceSize, rotateShape } from '@/lib/engine/pieces';
 import { K } from '@/lib/storage/keys';
 import { readJSON, writeJSON, remove } from '@/lib/storage/safe';
 import { checkAchievements, minimalistCheck, countPentoes } from '@/lib/achievements/checker';
-import { playClearSfx } from '@/lib/audio/sfx';
+import { playClearSfx, playComboSfx } from '@/lib/audio/sfx';
 import { useStatsStore } from './useStatsStore';
+import { effectiveRotationEnabled } from '@/lib/useTouchLike';
 import { useSettingsStore } from './useSettingsStore';
 
 type ScorePopup = { id: number; amount: number; mult: string };
@@ -146,15 +142,28 @@ export const useGameStore = create<State>((set, get) => {
   }
 
   function buildInitialRun(pieceSet: PieceSet): RunState {
-    const rng = Math.random;
-    const bag0 = buildBag(pieceSet, 0, rng);
-    const first = drawTray(bag0, pieceSet, 0, rng);
-    const next = drawTray(first.bag, pieceSet, 0, rng);
+    const rotationAllowed = effectiveRotationEnabled(
+      useSettingsStore.getState().rotation,
+    );
+    const board = freshBoard();
+    const source = { kind: 'classic' as const, pieceSet };
+    const first = generateSolvableBatch({
+      board,
+      bag: [],
+      source,
+      rotationAllowed,
+    });
+    const second = generateSolvableBatch({
+      board,
+      bag: first.bag,
+      source,
+      rotationAllowed,
+    });
     return {
       id: makeId(),
-      board: freshBoard(),
+      board,
       tray: first.tray.map(withId),
-      nextTray: next.tray.map(withId),
+      nextTray: second.tray.map(withId),
       score: 0,
       combo: 0,
       comboPeak: 0,
@@ -165,7 +174,7 @@ export const useGameStore = create<State>((set, get) => {
       startedAt: new Date().toISOString(),
       lastAt: new Date().toISOString(),
       gameOver: false,
-      bag: next.bag,
+      bag: second.bag,
     };
   }
 
@@ -266,8 +275,7 @@ export const useGameStore = create<State>((set, get) => {
     rotateSelected: () => {
       const { run, selectedTrayIndex } = get();
       if (!run || selectedTrayIndex === null) return;
-      const rotate = useSettingsStore.getState().rotation;
-      if (!rotate) return;
+      if (!effectiveRotationEnabled(useSettingsStore.getState().rotation)) return;
       const piece = run.tray[selectedTrayIndex];
       if (!piece) return;
       const nextShape = rotateShape(piece.shape);
@@ -307,19 +315,32 @@ export const useGameStore = create<State>((set, get) => {
       else if (cleared.totalLines >= 4) clears.quad++;
 
       const pieceSetVariant = useSettingsStore.getState().pieceSet;
+      const rotationAllowed = effectiveRotationEnabled(
+        useSettingsStore.getState().rotation,
+      );
       const density = boardDensity(afterClear);
 
-      // Refill the vacated slot from the head of nextTray, then top up nextTray
-      // with a freshly drawn piece. Tray always stays at 3 pieces.
-      const tray = run.tray.slice();
-      const incoming = run.nextTray[0] ?? null;
-      tray[trayIndex] = incoming;
+      // Batch-refresh model: vacate this slot and only swap the tray in from
+      // `nextTray` once all three are empty. A fresh solvable batch is then
+      // queued into `nextTray` for the following cycle.
+      let tray: (TrayPiece | null)[] = run.tray.slice();
+      tray[trayIndex] = null;
+      let nextTray: TrayPiece[] = run.nextTray;
+      let bag: ReadonlyArray<Piece> = run.bag;
 
-      let nextTray = run.nextTray.slice(1);
-      let bag = run.bag;
-      const drawn = drawOne(bag, pieceSetVariant, density);
-      nextTray = nextTray.concat(withId(drawn.piece));
-      bag = drawn.bag;
+      const trayExhausted = tray.every((t) => t === null);
+      if (trayExhausted) {
+        tray = nextTray.slice();
+        const drawn = generateSolvableBatch({
+          board: afterClear,
+          bag: bag.slice(),
+          source: { kind: 'classic', pieceSet: pieceSetVariant },
+          rotationAllowed,
+          density,
+        });
+        nextTray = drawn.tray.map(withId);
+        bag = drawn.bag;
+      }
 
       const comboPeak = Math.max(run.comboPeak, combo);
       const perfectClears = run.perfectClears + (perfect ? 1 : 0);
@@ -379,7 +400,10 @@ export const useGameStore = create<State>((set, get) => {
       });
 
       if (cleared.totalLines > 0) {
-        playClearSfx(cleared.totalLines, turnScore.multiplier);
+        playClearSfx(cleared.totalLines, turnScore.multiplier, { perfect });
+        if (combo >= 2 && combo > run.combo) {
+          playComboSfx(combo);
+        }
       }
 
       // Persist
@@ -421,9 +445,15 @@ export const useGameStore = create<State>((set, get) => {
       }
       fireAchievements(evs);
 
-      // Game over? Tray is always kept full (per-piece refill), so this is
-      // simply: no piece in the current tray can fit anywhere on the board.
-      if (!canAnyPieceFit(nextRun.board, nextRun.tray)) {
+      // Game over? The tray now refreshes in batches, so only lose when
+      // *remaining* (non-null) pieces all have no legal placement — and we
+      // respect rotations if the setting is on, matching what the player can
+      // actually do with the tray.
+      const hasRemaining = nextRun.tray.some((t) => t !== null);
+      if (
+        hasRemaining &&
+        !canAnyPieceFit(nextRun.board, nextRun.tray, undefined, rotationAllowed)
+      ) {
         setTimeout(() => get().endRun(), 600);
       }
 
