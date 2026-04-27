@@ -1,4 +1,4 @@
-import type { RunState } from '../types';
+import type { GimmicksRunState, RunState } from '../types';
 import type { LifetimeStats, Streak } from '../types';
 import { pieceSize } from '../engine/pieces';
 
@@ -78,6 +78,60 @@ export function minimalistCheck(sizes: number[]): boolean {
 
 export function countPentoes(sizes: number[]): number {
   return sizes.filter((s) => s >= 5).length;
+}
+
+export type GimmicksCheckContext = {
+  run: GimmicksRunState;
+  stats: LifetimeStats;
+  streak: Streak;
+  event:
+    | { type: 'turn'; lines: number; perfect: boolean; combo: number }
+    | { type: 'power_used' }
+    | { type: 'run_end' };
+};
+
+export function checkGimmicksAchievements(ctx: GimmicksCheckContext): string[] {
+  const out: string[] = [];
+  const { run, stats, streak, event } = ctx;
+
+  if (event.type === 'turn') {
+    if (run.placements >= 1) out.push('FIRST_PLACEMENT');
+    if (stats.totalPlacements >= 100) out.push('PLACE_100');
+    if (stats.totalPlacements >= 1000) out.push('PLACE_1000');
+    if (run.placements >= 50 && run.lives >= 3) out.push('GIMMICKS_SURVIVOR');
+    if (event.lines > 0) {
+      out.push('FIRST_BLOOD');
+      if (event.lines >= 2) out.push('DOUBLE_UP');
+      if (event.lines >= 3) out.push('TRIPLE_THREAT');
+      if (event.lines >= 4) out.push('QUAD_SQUAD');
+      if (event.combo >= 7) out.push('COMBO_BREAKER');
+      if (event.perfect) {
+        out.push('PERFECT_ONCE');
+        if (stats.perfectClears >= 10) out.push('PERFECT_10');
+      }
+      const totalClears =
+        stats.clears.single + stats.clears.double + stats.clears.triple + stats.clears.quad;
+      if (totalClears >= 100) out.push('CLEARS_100');
+    }
+    if (run.obstaclesCleared >= 10) out.push('OBSTACLE_COURSE');
+  }
+
+  if (event.type === 'power_used') {
+    if (run.usedPowerups.length >= 3) out.push('TOOLED_UP');
+    if (run.usedPowerups.length >= 5) out.push('POWER_SURGE');
+  }
+
+  if (event.type === 'run_end') {
+    out.push('GIMMICKS_FIRST');
+    if (run.lives === 1 && run.score >= 5000) out.push('CLUTCH_SAVE');
+    if (run.score >= 5000) out.push('SCORE_5K');
+    if (run.score >= 10000) out.push('SCORE_10K');
+    if (run.score >= 20000) out.push('SCORE_20K');
+    if (run.score >= 50000) out.push('SCORE_50K');
+    if (streak.current >= 7) out.push('DAILY_DEVOTED');
+  }
+
+  return Array.from(new Set(out));
 }
 
 export { pieceSize };

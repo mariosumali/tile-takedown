@@ -83,7 +83,7 @@ export const POOL = {
     'i5_h', 'i5_v', 'l5_a', 'l5_b', 'l5_c', 'l5_d',
     'p5_a', 'p5_b', 'p5_c', 'p5_d', 'plus5',
   ],
-  /** All 19 shapes. */
+  /** All catalog shapes. */
   full: PIECE_DEFS.map((d) => d.id),
   /** Pentominos only — the gauntlet capstone. */
   pentoOnly: [

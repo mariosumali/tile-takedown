@@ -237,6 +237,7 @@ export const useGameStore = create<State>((set, get) => {
       const stats = useStatsStore.getState();
       const summary: RunSummary = {
         id: run.id,
+        mode: 'classic',
         startedAt: run.startedAt,
         endedAt: ended.lastAt,
         score: run.score,

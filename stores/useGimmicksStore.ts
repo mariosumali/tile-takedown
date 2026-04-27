@@ -30,6 +30,7 @@ import { pieceSize, rotateShape } from '@/lib/engine/pieces';
 import { K } from '@/lib/storage/keys';
 import { readJSON, writeJSON, remove } from '@/lib/storage/safe';
 import { playClearSfx, playComboSfx } from '@/lib/audio/sfx';
+import { checkGimmicksAchievements } from '@/lib/achievements/checker';
 import {
   POWERUPS,
   POWERUP_ORDER,
@@ -91,6 +92,7 @@ type Snap = Pick<
   | 'obstacles'
   | 'powerupCells'
   | 'usedPowerups'
+  | 'obstaclesCleared'
 >;
 
 type State = {
@@ -192,6 +194,7 @@ export const useGimmicksStore = create<State>((set, get) => {
       obstacles: { ...run.obstacles },
       powerupCells: { ...run.powerupCells },
       usedPowerups: run.usedPowerups.slice(),
+      obstaclesCleared: run.obstaclesCleared ?? 0,
     };
   }
 
@@ -237,11 +240,26 @@ export const useGimmicksStore = create<State>((set, get) => {
       powerupCells: {},
       seed: Math.floor(Math.random() * 1e9),
       usedPowerups: [],
+      obstaclesCleared: 0,
     };
   }
 
   function firePowerToast(title: string, subtitle?: string): void {
     set({ powerToast: { id: Date.now(), title, subtitle } });
+  }
+
+  function fireAchievements(ids: string[]): void {
+    if (!ids.length) return;
+    const statsStore = useStatsStore.getState();
+    for (const id of ids) {
+      const unlocked = statsStore.unlock(id);
+      if (unlocked) {
+        import('@/lib/achievements/definitions').then((m) => {
+          const def = m.ACHIEVEMENTS_BY_ID[id];
+          if (def) firePowerToast(`Achievement: ${def.name}`, def.desc);
+        });
+      }
+    }
   }
 
   /**
@@ -439,6 +457,7 @@ export const useGimmicksStore = create<State>((set, get) => {
         const migrated: GimmicksRunState = {
           ...existing,
           powerupCells: existing.powerupCells ?? {},
+          obstaclesCleared: existing.obstaclesCleared ?? 0,
         };
         set({ run: migrated, hydrated: true });
       } else {
@@ -478,6 +497,7 @@ export const useGimmicksStore = create<State>((set, get) => {
       stats.recordRun(
         {
           id: run.id,
+          mode: 'gimmicks',
           startedAt: run.startedAt,
           endedAt: ended.lastAt,
           score: run.score,
@@ -488,6 +508,15 @@ export const useGimmicksStore = create<State>((set, get) => {
         new Date(ended.lastAt).getTime() - new Date(run.startedAt).getTime(),
       );
       stats.markPlayedToday();
+      const latestStats = useStatsStore.getState();
+      fireAchievements(
+        checkGimmicksAchievements({
+          run: ended,
+          stats: latestStats.stats,
+          streak: latestStats.streak,
+          event: { type: 'run_end' },
+        }),
+      );
       persistRun(null);
     },
 
@@ -560,6 +589,9 @@ export const useGimmicksStore = create<State>((set, get) => {
         placed.length,
         placed[0]?.length ?? 0,
       );
+      const obstaclesClearedThisTurn = clearedCellList.filter(([r, c]) =>
+        Boolean(run.obstacles[obstacleKey(r, c)]),
+      ).length;
 
       const resolved = resolveEmbeddedTriggers(
         afterClearBoard,
@@ -778,6 +810,7 @@ export const useGimmicksStore = create<State>((set, get) => {
         lives: livesAfterBomb,
         obstacles,
         powerupCells,
+        obstaclesCleared: (run.obstaclesCleared ?? 0) + obstaclesClearedThisTurn,
         lastAt: new Date().toISOString(),
       };
 
@@ -841,6 +874,20 @@ export const useGimmicksStore = create<State>((set, get) => {
           perfect,
         );
       }
+      const latestStats = useStatsStore.getState();
+      fireAchievements(
+        checkGimmicksAchievements({
+          run: nextRun,
+          stats: latestStats.stats,
+          streak: latestStats.streak,
+          event: {
+            type: 'turn',
+            lines: cleared.totalLines,
+            perfect,
+            combo,
+          },
+        }),
+      );
 
       if (cleared.totalLines > 0) {
         setTimeout(() => {
@@ -981,9 +1028,15 @@ export const useGimmicksStore = create<State>((set, get) => {
           });
           persistRun(next);
           firePowerToast('Tray reshuffled', undefined);
-          if (next.usedPowerups.length >= 3) {
-            useStatsStore.getState().unlock('TOOLED_UP');
-          }
+          const latestStats = useStatsStore.getState();
+          fireAchievements(
+            checkGimmicksAchievements({
+              run: next,
+              stats: latestStats.stats,
+              streak: latestStats.streak,
+              event: { type: 'power_used' },
+            }),
+          );
           return true;
         }
         return false;
@@ -999,9 +1052,15 @@ export const useGimmicksStore = create<State>((set, get) => {
           set({ run: next, freeRotateArmed: true });
           persistRun(next);
           firePowerToast('Free rotation armed', 'next rotation is free');
-          if (next.usedPowerups.length >= 3) {
-            useStatsStore.getState().unlock('TOOLED_UP');
-          }
+          const latestStats = useStatsStore.getState();
+          fireAchievements(
+            checkGimmicksAchievements({
+              run: next,
+              stats: latestStats.stats,
+              streak: latestStats.streak,
+              event: { type: 'power_used' },
+            }),
+          );
           return true;
         }
         return false;
@@ -1048,6 +1107,9 @@ export const useGimmicksStore = create<State>((set, get) => {
         firePowerToast('No effect', 'choose a different target');
         return false;
       }
+      const obstaclesClearedByPower = effect.cellsCleared.filter(([r, c]) =>
+        Boolean(run.obstacles[obstacleKey(r, c)]),
+      ).length;
 
       // Embedded power-ups sitting on cells this effect destroyed get
       // chain-triggered the same way a line clear would.
@@ -1068,6 +1130,7 @@ export const useGimmicksStore = create<State>((set, get) => {
         powerups: resolved.inventory,
         score: run.score + effect.bonus + resolved.bonus,
         usedPowerups: run.usedPowerups.concat(id),
+        obstaclesCleared: (run.obstaclesCleared ?? 0) + obstaclesClearedByPower,
         lastAt: new Date().toISOString(),
       };
       set({
@@ -1077,9 +1140,15 @@ export const useGimmicksStore = create<State>((set, get) => {
       persistRun(next);
       const bonusTotal = effect.bonus + resolved.bonus;
       firePowerToast(POWERUPS[id].name, `+${bonusTotal} bonus`);
-      if (next.usedPowerups.length >= 3) {
-        useStatsStore.getState().unlock('TOOLED_UP');
-      }
+      const latestStats = useStatsStore.getState();
+      fireAchievements(
+        checkGimmicksAchievements({
+          run: next,
+          stats: latestStats.stats,
+          streak: latestStats.streak,
+          event: { type: 'power_used' },
+        }),
+      );
       return true;
     },
 

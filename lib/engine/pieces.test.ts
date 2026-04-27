@@ -8,14 +8,14 @@ import {
 } from './pieces';
 
 describe('pieces', () => {
-  it('has 68 piece defs (33 up through pentominoes + 35 free hexominoes)', () => {
+  it('has 77 piece defs (42 fixed + 35 free hexominoes)', () => {
     // 1 mono + 2 domino + 6 tri + 13 tetro + 11 pento = 33
-    // + 35 free hexominoes (enumerated once at module load) = 68
-    expect(PIECE_DEFS.length).toBe(68);
+    // + 9 curated Classic additions + 35 free hexominoes = 77
+    expect(PIECE_DEFS.length).toBe(77);
   });
 
   it('has exactly 35 hexominoes, each with 6 cells', () => {
-    const hexes = PIECE_DEFS.filter((d) => d.size === 6);
+    const hexes = PIECE_DEFS.filter((d) => d.id.startsWith('h6_'));
     expect(hexes.length).toBe(35);
     for (const d of hexes) {
       expect(pieceSize(d.shape)).toBe(6);
@@ -28,13 +28,34 @@ describe('pieces', () => {
     expect(ids.size).toBe(PIECE_DEFS.length);
   });
 
-  it('every piece has between 1 and 6 cells', () => {
+  it('every piece has between 1 and 9 cells', () => {
     for (const def of PIECE_DEFS) {
       const n = pieceSize(def.shape);
       expect(n).toBeGreaterThanOrEqual(1);
-      expect(n).toBeLessThanOrEqual(6);
+      expect(n).toBeLessThanOrEqual(9);
       expect(n).toBe(def.size);
     }
+  });
+
+  it('includes the larger curated Classic blocks', () => {
+    const o3 = PIECE_DEFS.find((d) => d.id === 'o3')!;
+    const rect2x3 = PIECE_DEFS.find((d) => d.id === 'rect2x3')!;
+    const rect3x2 = PIECE_DEFS.find((d) => d.id === 'rect3x2')!;
+
+    expect(o3.shape).toEqual([
+      [1, 1, 1],
+      [1, 1, 1],
+      [1, 1, 1],
+    ]);
+    expect(rect2x3.shape).toEqual([
+      [1, 1, 1],
+      [1, 1, 1],
+    ]);
+    expect(rect3x2.shape).toEqual([
+      [1, 1],
+      [1, 1],
+      [1, 1],
+    ]);
   });
 
   it('uniqueRotations returns 1..4 distinct orientations', () => {

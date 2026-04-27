@@ -42,7 +42,7 @@ export type WorldTheme =
 export type PieceSet =
   | 'classic'
   | 'tetro_only'
-  | 'pentomino_chaos'
+  | 'crazy'
   | 'small_only';
 
 export type ClearCounts = {
@@ -51,6 +51,16 @@ export type ClearCounts = {
   triple: number;
   quad: number;
 };
+
+export type GameMode = 'classic' | 'gimmicks';
+
+export type ModeRecord = {
+  gamesPlayed: number;
+  highScore: number;
+  bestCombo: number;
+};
+
+export type ModeRecords = Record<GameMode, ModeRecord>;
 
 export type RunState = {
   id: string;
@@ -72,6 +82,7 @@ export type RunState = {
 
 export type RunSummary = {
   id: string;
+  mode?: GameMode;
   startedAt: string;
   endedAt: string;
   score: number;
@@ -84,6 +95,7 @@ export type LifetimeStats = {
   gamesPlayed: number;
   totalScore: number;
   highScore: number;
+  modeRecords?: ModeRecords;
   totalPlacements: number;
   clears: ClearCounts;
   longestCombo: number;
@@ -101,6 +113,10 @@ export type Settings = {
   /** Refill each tray slot the moment its piece is placed, instead of waiting
    *  for all three slots to empty and swapping in a new batch together. */
   instantTrayRefill: boolean;
+  /** When unset, tray chrome defaults hidden on all viewports. */
+  showTrayChrome?: boolean;
+  /** When unset, run stats default visible on desktop and hidden on mobile. */
+  showRunStats?: boolean;
   sfxVolume: number;
   ambientVolume: number;
   haptics: boolean;
@@ -160,7 +176,14 @@ export type LevelDef = {
 export type LevelRecord = {
   stars: LevelStars;
   bestScore: number;
+  badges?: LevelBonusId[];
 };
+
+export type LevelBonusId =
+  | 'under_par'
+  | 'no_undo'
+  | 'perfect_clear'
+  | 'combo_fire';
 
 export type LevelProgress = Record<string, LevelRecord>;
 
@@ -219,4 +242,6 @@ export type GimmicksRunState = {
   seed: number;
   /** Powerups ever used in this run — for TOOLED_UP achievement. */
   usedPowerups: PowerUpId[];
+  /** Obstacles cleared by line clears or powerups in this run. */
+  obstaclesCleared: number;
 };

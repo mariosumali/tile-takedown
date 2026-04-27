@@ -4,7 +4,9 @@ import { create } from 'zustand';
 import type {
   AchievementState,
   ClearCounts,
+  GameMode,
   LifetimeStats,
+  ModeRecords,
   RunSummary,
   Streak,
 } from '@/lib/types';
@@ -13,10 +15,16 @@ import { readJSON, writeJSON } from '@/lib/storage/safe';
 
 const emptyClears: ClearCounts = { single: 0, double: 0, triple: 0, quad: 0 };
 
+const DEFAULT_MODE_RECORDS: ModeRecords = {
+  classic: { gamesPlayed: 0, highScore: 0, bestCombo: 0 },
+  gimmicks: { gamesPlayed: 0, highScore: 0, bestCombo: 0 },
+};
+
 export const DEFAULT_STATS: LifetimeStats = {
   gamesPlayed: 0,
   totalScore: 0,
   highScore: 0,
+  modeRecords: DEFAULT_MODE_RECORDS,
   totalPlacements: 0,
   clears: { ...emptyClears },
   longestCombo: 0,
@@ -45,6 +53,31 @@ type State = {
   resetAll: () => void;
 };
 
+function normalizeStats(stats: LifetimeStats): LifetimeStats {
+  return {
+    ...DEFAULT_STATS,
+    ...stats,
+    clears: { ...emptyClears, ...stats.clears },
+    modeRecords: {
+      classic: {
+        ...DEFAULT_MODE_RECORDS.classic,
+        ...stats.modeRecords?.classic,
+      },
+      gimmicks: {
+        ...DEFAULT_MODE_RECORDS.gimmicks,
+        ...stats.modeRecords?.gimmicks,
+      },
+    },
+  };
+}
+
+function cloneModeRecords(records: ModeRecords): ModeRecords {
+  return {
+    classic: { ...records.classic },
+    gimmicks: { ...records.gimmicks },
+  };
+}
+
 function todayISO(): string {
   const d = new Date();
   return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
@@ -65,7 +98,7 @@ export const useStatsStore = create<State>((set, get) => ({
   achievements: {},
   streak: { ...DEFAULT_STREAK },
   hydrate: () => {
-    const stats = readJSON<LifetimeStats>(K.stats, DEFAULT_STATS);
+    const stats = normalizeStats(readJSON<LifetimeStats>(K.stats, DEFAULT_STATS));
     const runs = readJSON<RunSummary[]>(K.runs, []);
     const achievements = readJSON<Record<string, AchievementState>>(K.achievements, {});
     const streak = readJSON<Streak>(K.streak, DEFAULT_STREAK);
@@ -73,10 +106,19 @@ export const useStatsStore = create<State>((set, get) => ({
   },
   recordRun: (summary, duration) => {
     const { stats, runs } = get();
+    const mode: GameMode = summary.mode ?? 'classic';
+    const modeRecords = cloneModeRecords(stats.modeRecords ?? DEFAULT_MODE_RECORDS);
+    const previousMode = modeRecords[mode];
+    modeRecords[mode] = {
+      gamesPlayed: previousMode.gamesPlayed + 1,
+      highScore: Math.max(previousMode.highScore, summary.score),
+      bestCombo: Math.max(previousMode.bestCombo, summary.comboPeak),
+    };
     const newStats: LifetimeStats = {
       gamesPlayed: stats.gamesPlayed + 1,
       totalScore: stats.totalScore + summary.score,
       highScore: Math.max(stats.highScore, summary.score),
+      modeRecords,
       totalPlacements: stats.totalPlacements + summary.placements,
       clears: {
         single: stats.clears.single + summary.clears.single,
@@ -88,7 +130,7 @@ export const useStatsStore = create<State>((set, get) => ({
       perfectClears: stats.perfectClears,
       msPlayed: stats.msPlayed + duration,
     };
-    const newRuns = [summary, ...runs].slice(0, 50);
+    const newRuns = [{ ...summary, mode }, ...runs].slice(0, 50);
     set({ stats: newStats, runs: newRuns });
     writeJSON(K.stats, newStats);
     writeJSON(K.runs, newRuns);
@@ -138,7 +180,11 @@ export const useStatsStore = create<State>((set, get) => ({
     writeJSON(K.streak, next);
   },
   resetAll: () => {
-    const reset: State['stats'] = { ...DEFAULT_STATS, clears: { ...emptyClears } };
+    const reset: State['stats'] = {
+      ...DEFAULT_STATS,
+      clears: { ...emptyClears },
+      modeRecords: cloneModeRecords(DEFAULT_MODE_RECORDS),
+    };
     set({
       stats: reset,
       runs: [],

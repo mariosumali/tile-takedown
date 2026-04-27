@@ -4,6 +4,7 @@ import { create } from 'zustand';
 import type {
   BoardState,
   ClearCounts,
+  LevelBonusId,
   LevelDef,
   LevelProgress,
   LevelRecord,
@@ -71,6 +72,7 @@ type ActiveLevelSave = {
   perfectClears: number;
   bag: ReadonlyArray<Piece>;
   reshuffleUsed: boolean;
+  undosUsed: number;
   startedAt: string;
   lastAt: string;
 };
@@ -94,6 +96,7 @@ type State = {
   clears: ClearCounts;
   perfectClears: number;
   reshuffleUsed: boolean;
+  undosUsed: number;
 
   selectedTrayIndex: number | null;
   ghost: { row: number; col: number; legal: boolean } | null;
@@ -127,7 +130,12 @@ type State = {
   dismissScorePopup: () => void;
 
   /** Lookups + progress mutation. */
-  recordResult: (levelId: string, score: number, stars: LevelStars) => void;
+  recordResult: (
+    levelId: string,
+    score: number,
+    stars: LevelStars,
+    badges?: ReadonlyArray<LevelBonusId>,
+  ) => void;
   isUnlocked: (levelId: string) => boolean;
   starsFor: (levelId: string) => LevelStars;
   bestScoreFor: (levelId: string) => number;
@@ -155,6 +163,17 @@ function computeStars(
   if (score >= thresholds[1]) return 2;
   if (score >= thresholds[0]) return 1;
   return 0;
+}
+
+function levelBonusBadges(s: State): LevelBonusId[] {
+  const level = s.level;
+  if (!level) return [];
+  const badges: LevelBonusId[] = [];
+  if (s.placements > 0 && s.placements <= level.parMoves) badges.push('under_par');
+  if (s.undosUsed === 0) badges.push('no_undo');
+  if (s.perfectClears > 0) badges.push('perfect_clear');
+  if (s.comboPeak >= 6) badges.push('combo_fire');
+  return badges;
 }
 
 function persistProgress(progress: LevelProgress): void {
@@ -216,6 +235,7 @@ export const useLevelsStore = create<State>((set, get) => {
       perfectClears: s.perfectClears,
       bag: s.bag,
       reshuffleUsed: s.reshuffleUsed,
+      undosUsed: s.undosUsed,
       startedAt: new Date().toISOString(),
       lastAt: new Date().toISOString(),
     };
@@ -241,6 +261,7 @@ export const useLevelsStore = create<State>((set, get) => {
     clears: { single: 0, double: 0, triple: 0, quad: 0 },
     perfectClears: 0,
     reshuffleUsed: false,
+    undosUsed: 0,
 
     selectedTrayIndex: null,
     ghost: null,
@@ -298,6 +319,7 @@ export const useLevelsStore = create<State>((set, get) => {
         clears: { single: 0, double: 0, triple: 0, quad: 0 },
         perfectClears: 0,
         reshuffleUsed: false,
+        undosUsed: 0,
         selectedTrayIndex: null,
         ghost: null,
         undoStack: [],
@@ -329,6 +351,7 @@ export const useLevelsStore = create<State>((set, get) => {
         clears: { single: 0, double: 0, triple: 0, quad: 0 },
         perfectClears: 0,
         reshuffleUsed: false,
+        undosUsed: 0,
         selectedTrayIndex: null,
         ghost: null,
         undoStack: [],
@@ -341,7 +364,7 @@ export const useLevelsStore = create<State>((set, get) => {
       const s = get();
       if (!s.level || s.finishedStars !== null) return;
       const stars = computeStars(s.score, s.level.starThresholds);
-      s.recordResult(s.level.id, s.score, stars);
+      s.recordResult(s.level.id, s.score, stars, levelBonusBadges(s));
       set({ finishedStars: stars });
       persistActive(null);
     },
@@ -583,7 +606,7 @@ export const useLevelsStore = create<State>((set, get) => {
         setTimeout(() => {
           const cur = get();
           if (cur.finishedStars !== null) return;
-          cur.recordResult(level.id, cur.score, 3);
+          cur.recordResult(level.id, cur.score, 3, levelBonusBadges(cur));
           set({ finishedStars: 3 });
           persistActive(null);
         }, cleared.totalLines > 0 ? 900 : 250);
@@ -601,7 +624,7 @@ export const useLevelsStore = create<State>((set, get) => {
             const cur = get();
             if (cur.finishedStars !== null) return;
             const stars = computeStars(cur.score, level.starThresholds);
-            cur.recordResult(level.id, cur.score, stars);
+            cur.recordResult(level.id, cur.score, stars, levelBonusBadges(cur));
             set({ finishedStars: stars });
             persistActive(null);
           }, 600);
@@ -634,6 +657,7 @@ export const useLevelsStore = create<State>((set, get) => {
         clears: { ...snap.clears },
         bag: snap.bag,
         perfectClears: snap.perfectClears,
+        undosUsed: s.undosUsed + 1,
         undoStack: s.undoStack.slice(0, -1),
         selectedTrayIndex: null,
         ghost: null,
@@ -651,12 +675,16 @@ export const useLevelsStore = create<State>((set, get) => {
 
     dismissScorePopup: () => set({ scorePopup: null }),
 
-    recordResult: (levelId, score, stars) => {
+    recordResult: (levelId, score, stars, badges = []) => {
       const progress = { ...get().progress };
       const prev: LevelRecord = progress[levelId] ?? { stars: 0, bestScore: 0 };
+      const mergedBadges = Array.from(
+        new Set([...(prev.badges ?? []), ...badges]),
+      ) as LevelBonusId[];
       const nextRecord: LevelRecord = {
         stars: Math.max(prev.stars, stars) as LevelStars,
         bestScore: Math.max(prev.bestScore, score),
+        badges: mergedBadges,
       };
       progress[levelId] = nextRecord;
       set({ progress });

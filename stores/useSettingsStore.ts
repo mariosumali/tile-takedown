@@ -5,6 +5,10 @@ import type { Settings } from '@/lib/types';
 import { K } from '@/lib/storage/keys';
 import { readJSON, writeJSON } from '@/lib/storage/safe';
 
+type PersistedSettings = Omit<Partial<Settings>, 'pieceSet'> & {
+  pieceSet?: Settings['pieceSet'] | 'pentomino_chaos';
+};
+
 export const DEFAULT_SETTINGS: Settings = {
   theme: 'paper',
   worldTheme: 'none',
@@ -33,10 +37,14 @@ export const useSettingsStore = create<State>((set, get) => ({
   ...DEFAULT_SETTINGS,
   hydrated: false,
   hydrate: () => {
-    const data = readJSON<Settings>(K.settings, DEFAULT_SETTINGS);
-    set({ ...DEFAULT_SETTINGS, ...data, hydrated: true });
+    const data = readJSON<PersistedSettings>(K.settings, DEFAULT_SETTINGS);
+    const settings = normalizeSettings(data);
+    set({ ...settings, hydrated: true });
     if (typeof document !== 'undefined') {
-      document.documentElement.setAttribute('data-theme', data.theme || 'paper');
+      document.documentElement.setAttribute('data-theme', settings.theme);
+    }
+    if (data.pieceSet === 'pentomino_chaos') {
+      writeJSON(K.settings, settings);
     }
   },
   set: (k, v) => {
@@ -72,6 +80,17 @@ export const useSettingsStore = create<State>((set, get) => ({
   },
 }));
 
+function normalizeSettings(data: PersistedSettings): Settings {
+  const pieceSet =
+    data.pieceSet === 'pentomino_chaos' ? 'crazy' : data.pieceSet;
+
+  return {
+    ...DEFAULT_SETTINGS,
+    ...data,
+    pieceSet: pieceSet ?? DEFAULT_SETTINGS.pieceSet,
+  };
+}
+
 function persistSettings(get: () => State): void {
   const s = get();
   const settings: Settings = {
@@ -82,6 +101,8 @@ function persistSettings(get: () => State): void {
     nextTrayPreview: s.nextTrayPreview,
     tapToSelect: s.tapToSelect,
     instantTrayRefill: s.instantTrayRefill,
+    showTrayChrome: s.showTrayChrome,
+    showRunStats: s.showRunStats,
     sfxVolume: s.sfxVolume,
     ambientVolume: s.ambientVolume,
     haptics: s.haptics,

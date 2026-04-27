@@ -1,5 +1,11 @@
 import type { Piece, PieceColor, PieceSet } from '../types';
-import { PIECE_COLORS, PIECE_DEFS, shapeCompactness, type PieceDef } from './pieces';
+import {
+  LEGACY_CLASSIC_PIECE_IDS,
+  PIECE_COLORS,
+  PIECE_DEFS,
+  shapeCompactness,
+  type PieceDef,
+} from './pieces';
 
 const BAG_SIZE = 60;
 
@@ -53,24 +59,92 @@ function weightFor(def: PieceDef, density: number): number {
   return base;
 }
 
-function filterDefs(variant: PieceSet): ReadonlyArray<PieceDef> {
+const TETROMINO_PIECE_IDS: ReadonlyArray<string> = [
+  'i4_h', 'i4_v', 'o2',
+  'l4_a', 'l4_b', 'l4_c', 'l4_d',
+  'j4_a', 'j4_b', 'j4_c', 'j4_d',
+  's4', 's4_v',
+  'z4', 'z4_v',
+  't4_a', 't4_b', 't4_c', 't4_d',
+];
+
+const CLASSIC_PIECE_IDS: ReadonlyArray<string> = [
+  ...TETROMINO_PIECE_IDS,
+  'o3',
+  'rect2x3', 'rect3x2',
+  'i5_h', 'i5_v',
+  'l5_a', 'l5_b', 'l5_c', 'l5_d',
+];
+
+// Classic should feel generous: favor clean blocks, rectangles, and angle
+// pieces over zig-zags and long bars. These are absolute mature-game weights
+// because the generic size curve treats 6-cell pieces as rare "chaos" shapes,
+// which makes friendly 2x3 rectangles show up far less than intended.
+const CLASSIC_EASY_WEIGHTS: Readonly<Record<string, number>> = {
+  o2: 3.5,
+  o3: 4.5,
+  rect2x3: 4.25,
+  rect3x2: 4.25,
+
+  l4_a: 3.25,
+  l4_b: 3.25,
+  l4_c: 3.25,
+  l4_d: 3.25,
+  j4_a: 3.25,
+  j4_b: 3.25,
+  j4_c: 3.25,
+  j4_d: 3.25,
+
+  l5_a: 2.75,
+  l5_b: 2.75,
+  l5_c: 2.75,
+  l5_d: 2.75,
+};
+
+const CLASSIC_OPENING_NON_EASY_WEIGHT = 0.12;
+const CLASSIC_OPENING_BIAS_END_DENSITY = 0.6;
+
+function classicWeightFor(def: PieceDef, density: number): number {
+  const matureWeight = CLASSIC_EASY_WEIGHTS[def.id] ?? weightFor(def, density);
+  const openingBias = Math.max(
+    0,
+    Math.min(1, 1 - density / CLASSIC_OPENING_BIAS_END_DENSITY),
+  );
+  if (openingBias === 0) return matureWeight;
+
+  const openingWeight =
+    CLASSIC_EASY_WEIGHTS[def.id] === undefined
+      ? CLASSIC_OPENING_NON_EASY_WEIGHT
+      : matureWeight * 3;
+
+  return matureWeight * (1 - openingBias) + openingWeight * openingBias;
+}
+
+function defsFromIds(ids: ReadonlyArray<string>): ReadonlyArray<PieceDef> {
+  const out: PieceDef[] = [];
+  for (const id of ids) {
+    const def = PIECE_DEFS.find((d) => d.id === id);
+    if (def) out.push(def);
+  }
+  return out;
+}
+
+export function pieceDefsForSet(variant: PieceSet): ReadonlyArray<PieceDef> {
   switch (variant) {
     case 'tetro_only':
-      return PIECE_DEFS.filter((d) => d.size === 4);
-    case 'pentomino_chaos':
-      // Historically `size >= 4`; hexominoes would otherwise flood this
-      // variant. Keep it 4+5 so the "chaos" stays within the original spirit.
-      return PIECE_DEFS.filter((d) => d.size === 4 || d.size === 5);
+      return defsFromIds(TETROMINO_PIECE_IDS);
+    case 'crazy':
+      return defsFromIds(LEGACY_CLASSIC_PIECE_IDS);
     case 'small_only':
       return PIECE_DEFS.filter((d) => d.size <= 3);
     case 'classic':
     default:
-      return PIECE_DEFS;
+      return defsFromIds(CLASSIC_PIECE_IDS);
   }
 }
 
 /** Resolve piece ids into defs; unknown ids are skipped. */
-function defsFromIds(ids: ReadonlyArray<string>): ReadonlyArray<PieceDef> {
+function defsFromPoolIds(ids: ReadonlyArray<string>): ReadonlyArray<PieceDef> {
   const out: PieceDef[] = [];
   for (const id of ids) {
     const def = PIECE_DEFS.find((d) => d.id === id);
@@ -96,9 +170,10 @@ function bagFromDefs(
   defs: ReadonlyArray<PieceDef>,
   density: number,
   rng: () => number,
+  getWeight: (def: PieceDef, density: number) => number = weightFor,
 ): Piece[] {
   if (defs.length === 0) return [];
-  const weights = defs.map((d) => Math.max(0.05, weightFor(d, density)));
+  const weights = defs.map((d) => Math.max(0.05, getWeight(d, density)));
   const total = weights.reduce((a, b) => a + b, 0);
   const bag: Piece[] = [];
   for (let i = 0; i < BAG_SIZE; i++) {
@@ -122,7 +197,12 @@ export function buildBag(
   density: number,
   rng: () => number = Math.random,
 ): Piece[] {
-  return bagFromDefs(filterDefs(variant), density, rng);
+  return bagFromDefs(
+    pieceDefsForSet(variant),
+    density,
+    rng,
+    variant === 'classic' ? classicWeightFor : weightFor,
+  );
 }
 
 /** Build a bag from an explicit piece-id pool (used by Levels mode). */
@@ -131,7 +211,7 @@ export function buildBagFromPool(
   density: number,
   rng: () => number = Math.random,
 ): Piece[] {
-  const defs = defsFromIds(ids);
+  const defs = defsFromPoolIds(ids);
   if (defs.length === 0) return buildBag('classic', density, rng);
   return bagFromDefs(defs, density, rng);
 }

@@ -39,6 +39,11 @@ export const ACHIEVEMENTS: ReadonlyArray<AchievementDef> = [
   { id: 'FIRST_STAR', name: 'First star', desc: 'Earn your first star in Levels mode.', icon: '★' },
   { id: 'PERFECTIONIST', name: 'Perfectionist', desc: 'Three-star a level.', icon: '★★★' },
   { id: 'TOOLED_UP', name: 'Tooled up', desc: 'Use three powerups in a single Gimmicks run.', icon: '⚒' },
+  { id: 'GIMMICKS_FIRST', name: 'Gadgetry begins', desc: 'Finish your first Gimmicks run.', icon: '!' },
+  { id: 'GIMMICKS_SURVIVOR', name: 'Still standing', desc: 'Reach 50 Gimmicks placements with all lives left.', icon: '3' },
+  { id: 'OBSTACLE_COURSE', name: 'Obstacle course', desc: 'Clear 10 obstacles in one Gimmicks run.', icon: '#' },
+  { id: 'POWER_SURGE', name: 'Power surge', desc: 'Use five powerups in one Gimmicks run.', icon: 'P' },
+  { id: 'CLUTCH_SAVE', name: 'Clutch save', desc: 'Score 5,000+ in Gimmicks with one life left.', icon: '1' },
 ];
 
 export const ACHIEVEMENTS_BY_ID: Readonly<Record<string, AchievementDef>> =

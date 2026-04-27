@@ -319,7 +319,7 @@ Single namespaced JSON blob under key `tile-takedown:v1`:
   meta: { version: 1, createdAt: ISOString, lastOpenedAt: ISOString },
   settings: {
     theme: "paper" | "linen" | "noir" | "high_contrast",
-    pieceSet: "classic" | "tetro_only" | "pentomino_chaos" | "small_only",
+    pieceSet: "classic" | "tetro_only" | "crazy" | "small_only",
     rotation: boolean,
     nextTrayPreview: boolean,
     tapToSelect: boolean,

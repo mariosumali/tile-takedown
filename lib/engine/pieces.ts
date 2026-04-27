@@ -8,12 +8,9 @@ export type PieceDef = {
 
 const S = (rows: (0 | 1)[][]): PieceShape => rows;
 
-// Fixed piece defs up through pentominoes. Tetrominoes and below ship with
-// each rotation as its own def (bag-draw variety for small shapes); for
-// pentominoes we keep the canonical orientation per family plus selected
-// rotations as the original catalog. Hexominoes are added below — one
-// canonical shape per free hexomino, enumerated once at module load.
-const FIXED_DEFS: ReadonlyArray<PieceDef> = [
+// Legacy fixed defs were the old Classic roster before Classic became a
+// curated set and the old all-pieces mix moved to Crazy.
+const LEGACY_FIXED_DEFS: ReadonlyArray<PieceDef> = [
   { id: 'mono', shape: S([[1]]), size: 1 },
 
   { id: 'domino_h', shape: S([[1, 1]]), size: 2 },
@@ -51,6 +48,19 @@ const FIXED_DEFS: ReadonlyArray<PieceDef> = [
   { id: 'p5_c', shape: S([[0, 1], [1, 1], [1, 1]]), size: 5 },
   { id: 'p5_d', shape: S([[1, 1, 0], [1, 1, 1]]), size: 5 },
   { id: 'plus5', shape: S([[0, 1, 0], [1, 1, 1], [0, 1, 0]]), size: 5 },
+];
+
+// Extra named shapes used by the curated Classic and Tetro-only sets.
+const CURATED_FIXED_DEFS: ReadonlyArray<PieceDef> = [
+  { id: 'j4_a', shape: S([[0, 1], [0, 1], [1, 1]]), size: 4 },
+  { id: 'j4_b', shape: S([[1, 0, 0], [1, 1, 1]]), size: 4 },
+  { id: 'j4_c', shape: S([[1, 1], [1, 0], [1, 0]]), size: 4 },
+  { id: 'j4_d', shape: S([[1, 1, 1], [0, 0, 1]]), size: 4 },
+  { id: 's4_v', shape: S([[1, 0], [1, 1], [0, 1]]), size: 4 },
+  { id: 'z4_v', shape: S([[0, 1], [1, 1], [1, 0]]), size: 4 },
+  { id: 'o3', shape: S([[1, 1, 1], [1, 1, 1], [1, 1, 1]]), size: 9 },
+  { id: 'rect2x3', shape: S([[1, 1, 1], [1, 1, 1]]), size: 6 },
+  { id: 'rect3x2', shape: S([[1, 1], [1, 1], [1, 1]]), size: 6 },
 ];
 
 /* ------------------------------------------------------------------------ */
@@ -182,8 +192,14 @@ const HEXOMINO_DEFS: ReadonlyArray<PieceDef> = enumerateFreePolyominoes(6).map(
 );
 
 export const PIECE_DEFS: ReadonlyArray<PieceDef> = [
-  ...FIXED_DEFS,
+  ...LEGACY_FIXED_DEFS,
+  ...CURATED_FIXED_DEFS,
   ...HEXOMINO_DEFS,
+];
+
+export const LEGACY_CLASSIC_PIECE_IDS: ReadonlyArray<string> = [
+  ...LEGACY_FIXED_DEFS.map((d) => d.id),
+  ...HEXOMINO_DEFS.map((d) => d.id),
 ];
 
 export const PIECE_COLORS: ReadonlyArray<PieceColor> = [
