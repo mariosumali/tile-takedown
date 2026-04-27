@@ -1,112 +1,88 @@
 #!/usr/bin/env node
-// Volcano Forge — charred basalt with glowing lava cracks bleeding through.
-// Each tile has: dark obsidian base, jagged magma seams tinted toward the piece
-// color, ember particles, and a sharp top highlight so it still feels like glass.
+// Magma Block - pixelated dark crust with orange lava pockets, taking visual
+// cues from Minecraft magma blocks while staying in the app's flat tile style.
 
 import {
   PixelCanvas, TILE_SIZE, rng, hashStr, hexToRgb, mix, lighten, darken, saturate,
-  speckle, bevel, crack, saveTile,
+  speckle, bevel, saveTile,
 } from './lib/tilegen.mjs';
 
 const THEME = 'volcano';
 
 const COLORS = {
-  tomato:  '#ff4a28',
-  mustard: '#ffb640',
-  olive:   '#9a5b2e',
-  sky:     '#c76a3c',
-  plum:    '#c23a52',
-  cream:   '#6a4030',
+  tomato:  '#ff5a22',
+  mustard: '#ffb12c',
+  olive:   '#b85f24',
+  sky:     '#e87835',
+  plum:    '#d44735',
+  cream:   '#7b3e22',
 };
 
-const BASALT = { r: 28, g: 18, b: 16, a: 255 };
-const BASALT_HIGH = { r: 72, g: 50, b: 44, a: 255 };
-const BASALT_EDGE = { r: 10, g: 6, b: 4, a: 255 };
+const CRUST = { r: 70, g: 33, b: 24, a: 255 };
+const CRUST_DARK = { r: 40, g: 18, b: 14, a: 255 };
+const ASH = { r: 96, g: 48, b: 34, a: 255 };
+const RIM = { r: 8, g: 4, b: 5, a: 255 };
+
+function rectNoise(c, rand, x, y, w, h, base, variance) {
+  for (let yy = y; yy < y + h; yy++) {
+    for (let xx = x; xx < x + w; xx++) {
+      const d = Math.round((rand() * 2 - 1) * variance);
+      c.setPixel(xx, yy, {
+        r: Math.max(0, Math.min(255, base.r + d)),
+        g: Math.max(0, Math.min(255, base.g + d * 0.7)),
+        b: Math.max(0, Math.min(255, base.b + d * 0.45)),
+        a: 255,
+      });
+    }
+  }
+}
 
 function generate(colorName, hex) {
   const c = new PixelCanvas(TILE_SIZE, TILE_SIZE);
-  const rand = rng(hashStr(`${THEME}:${colorName}`) ^ 0xf1e5);
+  const rand = rng(hashStr(`${THEME}:${colorName}`) ^ 0x6a9a);
   const piece = hexToRgb(hex);
+  const glow = lighten(saturate(piece, 0.5), 0.26);
+  const hot = lighten(saturate(piece, 0.65), 0.58);
+  const dim = darken(saturate(piece, 0.25), 0.18);
 
-  // Saturated glow tints derived from the piece color.
-  const lavaCore = lighten(saturate(piece, 0.4), 0.4);
-  const lavaHot  = lighten(saturate(piece, 0.55), 0.7);
-  const lavaDim  = darken(saturate(piece, 0.2), 0.25);
+  c.clear(CRUST_DARK);
 
-  // Base: dark basalt gradient.
-  for (let y = 0; y < TILE_SIZE; y++) {
-    const t = y / TILE_SIZE;
-    const col = mix(BASALT_HIGH, BASALT, t);
-    for (let x = 0; x < TILE_SIZE; x++) c.setPixel(x, y, col);
+  // Blocky crust pixels, intentionally chunky like low-res voxel art.
+  for (let y = 0; y < TILE_SIZE; y += 8) {
+    for (let x = 0; x < TILE_SIZE; x += 8) {
+      const choice = rand();
+      const base = choice < 0.45 ? CRUST_DARK : choice < 0.8 ? CRUST : ASH;
+      rectNoise(c, rand, x, y, 8, 8, base, 9);
+    }
   }
 
-  // Large blotches of slightly lighter rock for variation.
-  for (let i = 0; i < 5; i++) {
-    const cx = Math.floor(rand() * TILE_SIZE);
-    const cy = Math.floor(rand() * TILE_SIZE);
-    const r = 6 + Math.floor(rand() * 8);
-    for (let y = -r; y <= r; y++) {
-      for (let x = -r; x <= r; x++) {
-        const d = Math.hypot(x, y);
-        if (d > r) continue;
-        const f = 1 - d / r;
-        if (rand() > f * 0.85) continue;
-        const p = c.getPixel(cx + x, cy + y);
-        c.setPixel(cx + x, cy + y, {
-          r: Math.min(255, p.r + 14),
-          g: Math.min(255, p.g + 8),
-          b: Math.min(255, p.b + 6),
-          a: 255,
-        });
+  const lava = [
+    [8, 8, 16, 8], [24, 0, 8, 16], [40, 8, 16, 8],
+    [0, 24, 16, 8], [24, 24, 16, 8], [48, 24, 16, 8],
+    [8, 40, 8, 16], [32, 40, 16, 8], [48, 48, 8, 16],
+  ];
+  for (const [x, y, w, h] of lava) {
+    rectNoise(c, rand, x, y, w, h, glow, 16);
+    for (let yy = y + 1; yy < y + h - 1; yy++) {
+      for (let xx = x + 1; xx < x + w - 1; xx++) {
+        if (rand() < 0.2) c.setPixel(xx, yy, hot);
+        else if (rand() < 0.22) c.setPixel(xx, yy, dim);
       }
     }
+    c.rect(x, y, w, 1, hot);
+    c.rect(x, y + h - 1, w, 1, darken(dim, 0.35));
   }
 
-  // Heavy stone speckle.
-  speckle(c, rand, 22, 0.6);
-
-  // Glowing lava cracks. A primary seam then several branches.
-  const seams = 3 + Math.floor(rand() * 2);
-  for (let i = 0; i < seams; i++) {
-    const sx = Math.floor(rand() * TILE_SIZE);
-    const sy = Math.floor(rand() * TILE_SIZE);
-    crack(c, rand, sx, sy, 40 + Math.floor(rand() * 24), lavaCore, lavaDim);
-  }
-
-  // Brighter inner cracks (thinner, brighter core).
-  for (let i = 0; i < 2; i++) {
-    const sx = Math.floor(rand() * TILE_SIZE);
-    const sy = Math.floor(rand() * TILE_SIZE);
-    crack(c, rand, sx, sy, 22 + Math.floor(rand() * 12), lavaHot, null);
-  }
-
-  // Ember particles floating near cracks.
-  for (let i = 0; i < 18; i++) {
+  // Pixel cracks and embers.
+  for (let i = 0; i < 32; i++) {
     const x = Math.floor(rand() * TILE_SIZE);
     const y = Math.floor(rand() * TILE_SIZE);
-    const neighbor = [
-      c.getPixel(x - 1, y), c.getPixel(x + 1, y),
-      c.getPixel(x, y - 1), c.getPixel(x, y + 1),
-    ];
-    const nearGlow = neighbor.some((p) => p.r > 180 || p.g > 140);
-    if (nearGlow && rand() < 0.6) {
-      c.setPixel(x, y, lavaHot);
-    } else if (rand() < 0.12) {
-      c.setPixel(x, y, lavaDim);
-    }
+    const p = c.getPixel(x, y);
+    if (p.r < 120) c.setPixel(x, y, rand() < 0.45 ? RIM : darken(CRUST_DARK, 0.2));
   }
 
-  // Charred rim.
-  bevel(c, darken(BASALT_HIGH, 0.25), BASALT_EDGE, 1);
-
-  // Sharp top glass highlight (1px line interrupted by cracks).
-  for (let x = 2; x < TILE_SIZE - 2; x++) {
-    const above = c.getPixel(x, 1);
-    if (above.r < 80 && rand() < 0.8) {
-      c.setPixel(x, 1, { r: 168, g: 124, b: 110, a: 180 });
-    }
-  }
-
+  speckle(c, rand, 10, 0.24);
+  bevel(c, ASH, RIM, 1);
   return c;
 }
 
