@@ -1,7 +1,6 @@
 #!/usr/bin/env node
-// Arctic Aurora — frosted ice block with a six-point snowflake and a faint
-// aurora band. Base is icy pastel taking a hue hint from the piece color so
-// the six variants still read as distinct without losing the shared "ice" feel.
+// Ice Block - translucent, chunky ice with trapped bubbles, cracks, and hard
+// square edges. Piece color gives each block a cold tint.
 
 import {
   PixelCanvas, TILE_SIZE, rng, hashStr, hexToRgb, mix, lighten, darken,
@@ -11,105 +10,55 @@ import {
 const THEME = 'arctic';
 
 const COLORS = {
-  tomato:  '#6ec5a0',
-  mustard: '#c8a4e0',
-  olive:   '#4aa095',
-  sky:     '#5ba4da',
-  plum:    '#8462b8',
-  cream:   '#d6e5ee',
+  tomato:  '#a7dfd0',
+  mustard: '#d8d3f0',
+  olive:   '#99d3cb',
+  sky:     '#9bd6f0',
+  plum:    '#b9b0e8',
+  cream:   '#e9f4f7',
 };
 
-const ICE_WHITE = { r: 240, g: 248, b: 255, a: 255 };
-const ICE_EDGE  = { r: 40, g: 60, b: 90, a: 255 };
-
-function drawSnowflake(c, cx, cy, size, col) {
-  for (let i = 0; i < 6; i++) {
-    const ang = (i / 6) * Math.PI * 2;
-    const cs = Math.cos(ang), sn = Math.sin(ang);
-    // Main arm.
-    for (let r = 0; r <= size; r++) {
-      c.setPixel(Math.round(cx + cs * r), Math.round(cy + sn * r), col);
-    }
-    // Barbs along each arm.
-    for (const off of [size * 0.35, size * 0.6, size * 0.82]) {
-      const bx = cx + cs * off;
-      const by = cy + sn * off;
-      const len = Math.round(size * 0.25);
-      for (let r = 1; r <= len; r++) {
-        const a1 = ang + Math.PI / 3;
-        const a2 = ang - Math.PI / 3;
-        c.setPixel(Math.round(bx + Math.cos(a1) * r), Math.round(by + Math.sin(a1) * r), col);
-        c.setPixel(Math.round(bx + Math.cos(a2) * r), Math.round(by + Math.sin(a2) * r), col);
-      }
-    }
-  }
-  c.setPixel(cx, cy, lighten(col, 0.3));
-}
+const ICE = { r: 238, g: 248, b: 255, a: 255 };
+const EDGE = { r: 32, g: 58, b: 92, a: 255 };
+const FROST = { r: 255, g: 255, b: 255, a: 185 };
 
 function generate(colorName, hex) {
   const c = new PixelCanvas(TILE_SIZE, TILE_SIZE);
-  const rand = rng(hashStr(`${THEME}:${colorName}`) ^ 0xc01d);
+  const rand = rng(hashStr(`${THEME}:${colorName}`) ^ 0x1ce0);
   const piece = hexToRgb(hex);
-  // Base ice takes the piece hue at low saturation — keeps every tile icy
-  // but lets the piece color peek through.
-  const iceTop = mix(ICE_WHITE, piece, 0.18);
-  const iceBot = mix(ICE_WHITE, darken(piece, 0.2), 0.45);
+  const top = mix(ICE, piece, 0.22);
+  const bot = mix(ICE, darken(piece, 0.12), 0.5);
+  const mid = mix(top, bot, 0.5);
 
-  // Vertical gradient, banded for pixel feel.
   for (let y = 0; y < TILE_SIZE; y++) {
-    const t = Math.floor((y / TILE_SIZE) * 8) / 7;
-    const col = mix(iceTop, iceBot, t);
-    for (let x = 0; x < TILE_SIZE; x++) c.setPixel(x, y, col);
-  }
-
-  // Aurora wash across the top third.
-  for (let y = 0; y < 22; y++) {
-    const falloff = 1 - y / 22;
+    const band = Math.floor(y / 8) % 2;
+    const col = mix(top, bot, y / TILE_SIZE + band * 0.04);
     for (let x = 0; x < TILE_SIZE; x++) {
-      const shimmer = Math.sin((x + y * 0.5) * 0.18) * 0.5 + 0.5;
-      const t = falloff * 0.35 * shimmer;
-      const p = c.getPixel(x, y);
-      c.setPixel(x, y, mix(p, piece, t));
+      const edge = Math.min(x, y, TILE_SIZE - 1 - x, TILE_SIZE - 1 - y);
+      c.setPixel(x, y, edge < 7 ? mix(col, mid, 0.24) : col);
     }
   }
 
-  // Fractal frost cracks radiating from corners.
-  function frost(x0, y0, ang, depth) {
-    if (depth <= 0) return;
-    let x = x0, y = y0;
-    const len = 6 + Math.floor(rand() * depth * 4);
-    for (let i = 0; i < len; i++) {
-      x += Math.cos(ang);
-      y += Math.sin(ang);
-      c.setPixel(Math.round(x), Math.round(y), { r: 250, g: 252, b: 255, a: 210 });
-    }
-    frost(x, y, ang + 0.55, depth - 1);
-    frost(x, y, ang - 0.55, depth - 1);
+  // Big square ice facets and internal cracks.
+  for (const [x, y, w, h] of [[7, 8, 22, 16], [31, 9, 25, 19], [8, 29, 19, 25], [29, 31, 26, 22]]) {
+    c.rect(x, y, w, 1, FROST);
+    c.rect(x, y, 1, h, FROST);
+    c.rect(x, y + h - 1, w, 1, mix(bot, EDGE, 0.18));
+    c.rect(x + w - 1, y, 1, h, mix(bot, EDGE, 0.2));
   }
-  frost(2, 2, Math.PI / 4, 3);
-  frost(TILE_SIZE - 3, 2, (3 * Math.PI) / 4, 3);
-  frost(2, TILE_SIZE - 3, -Math.PI / 4, 2);
-  frost(TILE_SIZE - 3, TILE_SIZE - 3, -(3 * Math.PI) / 4, 2);
+  c.line(11, 17, 25, 28, FROST);
+  c.line(25, 28, 19, 42, FROST);
+  c.line(39, 13, 31, 27, { ...FROST, a: 150 });
+  c.line(42, 37, 53, 48, { ...FROST, a: 155 });
 
-  // Tiny air bubbles trapped in the ice.
-  for (let i = 0; i < 16; i++) {
-    const x = Math.floor(rand() * TILE_SIZE);
-    const y = Math.floor(rand() * TILE_SIZE);
-    c.setPixel(x, y, lighten(iceTop, 0.35));
-  }
-  speckle(c, rand, 8, 0.15);
-
-  // Central snowflake (piece-colored, bright).
-  drawSnowflake(c, 32, 34, 12, mix(piece, ICE_WHITE, 0.35));
-
-  // Glossy top highlight strip.
-  for (let x = 4; x < TILE_SIZE - 4; x++) {
-    c.setPixel(x, 2, { r: 255, g: 255, b: 255, a: 200 });
-    if (rand() < 0.4) c.setPixel(x, 3, { r: 255, g: 255, b: 255, a: 120 });
+  for (let i = 0; i < 18; i++) {
+    const x = 6 + Math.floor(rand() * 52);
+    const y = 6 + Math.floor(rand() * 52);
+    c.ringCircle(x, y, rand() < 0.72 ? 1 : 2, { r: 255, g: 255, b: 255, a: 140 });
   }
 
-  bevel(c, lighten(iceTop, 0.25), ICE_EDGE, 1);
-
+  speckle(c, rand, 4, 0.1);
+  bevel(c, lighten(top, 0.28), EDGE, 1);
   return c;
 }
 
