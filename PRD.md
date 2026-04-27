@@ -123,9 +123,8 @@ Same engine, modified rules:
 - Floating score popups and combo VFX scale from spark to hot, fire, and inferno tiers.
 
 ### Undo
-- Classic: **3 undos per run**, non-refilling. HUD shows `● ● ●` dots; grey out as used.
-- Hotkey: `Z`. Mobile: long-press undo button.
-- Undo reverses placement + any clears triggered. Combo multiplier restored to pre-turn value.
+- Classic has no undo. Deadlocks end the run.
+- Levels and Gimmicks can still expose limited undo where their mode rules allow it.
 - Sandbox: unlimited undo + redo stack.
 
 ### Next-tray preview
@@ -150,7 +149,7 @@ Same engine, modified rules:
 - Per-run history: last 50 runs (score, duration, clears, combo peak).
 - Distribution chart: score histogram, 10-bucket.
 
-### Achievements (38 at launch)
+### Achievements
 Examples:
 - `FIRST_PLACEMENT` — place your first piece.
 - `FIRST_BLOOD` — first line clear.
@@ -158,7 +157,6 @@ Examples:
 - `QUAD_SQUAD` — clear 4 lines in one move (the max).
 - `PERFECT_10` — 10 perfect clears across all runs.
 - `COMBO_BREAKER` — ×3.00 multiplier achieved.
-- `THRIFTY` — finish a run without using any undos (score > 20,000).
 - `CENTURION` — 100 runs played.
 - `MARATHON` — 200+ placements in a single run.
 - `SANDBOX_ARCHITECT` — save 5 snapshots.
@@ -197,7 +195,7 @@ Theme is stored in localStorage, applied via `data-theme` attribute on `<html>`.
 Hero with live auto-playing demo grid. Mode cards (Classic, Levels, Gimmicks, Sandbox). Stats row. Feature grid. Controls reference. Footer.
 
 ### `/play` — Classic
-Grid center, score/combo HUD top, tray bottom, sidebar right with next-tray preview + undos + current run timer.
+Grid center, score/combo HUD top, tray bottom, sidebar right with next-tray preview + current run stats.
 
 ### `/levels` and `/levels/[id]` — Levels
 Tiered catalog, daily featured level, shaped boards, target score, stars, and bonus badges.
@@ -465,7 +463,7 @@ styles/
 | Click/drag piece | Pick up |
 | Release over grid | Place |
 | `R` (hold) | Rotate (if rotation on) |
-| `Z` | Undo |
+| `Z` | Undo in Levels/Gimmicks |
 | `1` `2` `3` | Select tray slot |
 | `Esc` | Cancel drag / close modal |
 | `M` | Toggle mute |

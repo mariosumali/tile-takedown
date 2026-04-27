@@ -8,7 +8,7 @@ const touchControls: Control[] = [
   { key: 'Drag', label: 'Move a piece to the board' },
   { key: 'Ghost', label: 'Green fits, red bounces' },
   { key: 'Tap mode', label: 'Optional piece, then cell placement' },
-  { key: 'Undo', label: 'Spend one of your run saves' },
+  { key: 'No moves', label: 'Classic ends when the tray locks' },
   { key: 'Powerups', label: 'Gimmicks tools target board cells' },
   { key: 'Settings', label: 'Tune tap, sound, haptics, and chrome' },
 ];
@@ -17,7 +17,7 @@ const desktopControls: Control[] = [
   { key: 'Drag', label: 'Pick up piece' },
   { key: 'Drop', label: 'Place on grid' },
   { key: 'R', label: 'Rotate 90° when enabled' },
-  { key: 'Z', label: 'Undo' },
+  { key: 'Z', label: 'Undo in Levels/Gimmicks' },
   { key: '1/2/3', label: 'Select slot' },
   { key: 'Esc', label: 'Cancel drag or powerup' },
   { key: 'M', label: 'Mute sound' },

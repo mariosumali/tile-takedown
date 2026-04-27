@@ -17,13 +17,12 @@ export default function ModesSection() {
           <div className="mc-eyebrow">8 &times; 8 &middot; 3-piece tray</div>
           <h3>Classic</h3>
           <p>
-            Score, combo, survive. Fill rows or columns to clear. Three undos
-            per run &mdash; spend them wisely. Game ends when nothing in the
-            tray fits.
+            Score, combo, survive. Fill rows or columns to clear. No take-backs:
+            the run ends when nothing in the tray fits.
           </p>
           <div className="tags">
             <span className="tag-chip">combos</span>
-            <span className="tag-chip">3 undos</span>
+            <span className="tag-chip">no undos</span>
             <span className="tag-chip">next-tray</span>
             <span className="tag-chip">high score</span>
           </div>

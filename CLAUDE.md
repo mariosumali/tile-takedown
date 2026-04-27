@@ -8,7 +8,7 @@ This file is the entry point for Claude Code. Read it first, then read `PRD.md` 
 
 - **Design system** (`DESIGN_SYSTEM.md`) is final. Don't renegotiate colors, type, or motion primitives. If you think something needs to change, flag it — don't silently change it.
 - **Landing page** (`app/page.tsx`) renders the complete visual composition: nav, hero with live-looking demo board, modes, stats, features, controls, footer. All components are in `components/landing/` and `components/`.
-- **Game page** (`app/play/page.tsx`) renders a full mid-run state: HUD cards, board with preclear row and ghost piece, tray, next-tray preview, undo card, mini stats, achievement toast. Visual only — no interactions.
+- **Game page** (`app/play/page.tsx`) renders a full mid-run state: HUD cards, board with preclear row and ghost piece, tray, next-tray preview, mini stats, achievement toast. Visual only — no interactions.
 - **Design tokens** live in `app/globals.css` as CSS custom properties. All four themes (`paper`, `linen`, `noir`, `high_contrast`) scaffolded via `html[data-theme]`.
 - **Type definitions** start in `lib/types.ts` (pieces, cells, boards).
 - **Mock state** for the visual pages lives in `lib/mockState.ts`. This is scaffolding data; replace it with real runtime state as the engine comes online.
@@ -130,7 +130,6 @@ tile-takedown/
 │       ├── GameBoard.tsx
 │       ├── Tray.tsx
 │       ├── NextTrayCard.tsx
-│       ├── UndoCard.tsx
 │       ├── MiniStats.tsx
 │       └── AchievementToast.tsx
 └── lib/

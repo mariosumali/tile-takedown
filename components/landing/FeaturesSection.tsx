@@ -16,11 +16,11 @@ const features: Feature[] = [
       'Consecutive-turn clears stack a multiplier up to ×4.00, with hotter effects as the board catches fire.',
   },
   {
-    icon: '↶',
+    icon: '!',
     iconClass: 'fi-m',
-    title: 'Three undos',
+    title: 'No take-backs',
     desc:
-      'Non-refilling, per run. Reverses the placement and any clears it triggered. Combo restored too.',
+      'Classic is cleaner and sharper: place carefully, because deadlocks end the run.',
   },
   {
     icon: '?',
