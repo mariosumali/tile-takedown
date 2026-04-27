@@ -12,6 +12,7 @@ type Props = {
     e: React.PointerEvent<HTMLDivElement>,
   ) => void;
   hint?: string;
+  chromeVisible?: boolean;
 };
 
 export default function Tray({
@@ -20,14 +21,20 @@ export default function Tray({
   selectedIndex = null,
   onPointerDown,
   hint = 'drag a piece onto the board',
+  chromeVisible = true,
 }: Props) {
+  const wrapClasses = ['tray-wrap'];
+  if (!chromeVisible) wrapClasses.push('tray-chrome-hidden');
+
   return (
-    <div className="tray-wrap">
-      <div className="tray-head">
-        <span className="label">Your tray</span>
-        <span className="hint">{hint}</span>
-      </div>
-      <div className="tray">
+    <div className={wrapClasses.join(' ')}>
+      {chromeVisible && (
+        <div className="tray-head">
+          <span className="label">Your tray</span>
+          <span className="hint">{hint}</span>
+        </div>
+      )}
+      <div className="tray" role="group" aria-label="Your tray">
         {pieces.map((piece, i) => {
           const classes = ['tray-slot'];
           if (activeIndex === i) classes.push('active');
@@ -48,7 +55,7 @@ export default function Tray({
               }
               style={{ touchAction: 'none' }}
             >
-              <span className="slot-num">{i + 1}</span>
+              {chromeVisible && <span className="slot-num">{i + 1}</span>}
               {piece && (
                 <PieceShape
                   shape={piece.shape}

@@ -6,10 +6,17 @@ import Nav from '@/components/Nav';
 import Footer from '@/components/Footer';
 import { LEVELS } from '@/lib/levels/catalog';
 import { TIER_SPECS } from '@/lib/levels/balance';
-import type { LevelDef, LevelStars, LevelTier } from '@/lib/types';
+import type { LevelBonusId, LevelDef, LevelStars, LevelTier } from '@/lib/types';
 import { useLevelsStore } from '@/stores/useLevelsStore';
 
 const TIERS: LevelTier[] = [1, 2, 3, 4, 5];
+
+const BADGE_LABELS: Record<LevelBonusId, string> = {
+  under_par: 'par',
+  no_undo: 'no undo',
+  perfect_clear: 'perfect',
+  combo_fire: 'combo',
+};
 
 export default function LevelsIndex() {
   const hydrate = useLevelsStore((s) => s.hydrate);
@@ -142,6 +149,7 @@ export default function LevelsIndex() {
                     level={level}
                     stars={progress[level.id]?.stars ?? 0}
                     bestScore={progress[level.id]?.bestScore ?? 0}
+                    badges={progress[level.id]?.badges ?? []}
                     unlocked={hydrated ? isUnlocked(level.id) : level.index === 1}
                   />
                 ))}
@@ -177,11 +185,13 @@ function LevelCell({
   level,
   stars,
   bestScore,
+  badges,
   unlocked,
 }: {
   level: LevelDef;
   stars: LevelStars;
   bestScore: number;
+  badges: ReadonlyArray<LevelBonusId>;
   unlocked: boolean;
 }) {
   const cls = `mode-card ${unlocked ? '' : 'locked'}`;
@@ -231,6 +241,22 @@ function LevelCell({
           }}
         >
           best {bestScore.toLocaleString()}
+        </div>
+      )}
+      {badges.length > 0 && (
+        <div
+          style={{
+            display: 'flex',
+            flexWrap: 'wrap',
+            gap: 4,
+            marginTop: 8,
+          }}
+        >
+          {badges.slice(0, 3).map((badge) => (
+            <span key={badge} className="level-badge-chip">
+              {BADGE_LABELS[badge]}
+            </span>
+          ))}
         </div>
       )}
     </>

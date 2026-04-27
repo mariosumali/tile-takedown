@@ -12,6 +12,8 @@ import PowerupTray from './PowerupTray';
 import LivesPips from './LivesPips';
 import ClearEffects from './ClearEffects';
 import ComboFx from './ComboFx';
+import GameHelpOverlay from './GameHelpOverlay';
+import { useGameChromeVisibility } from './GameChromeControls';
 import { useGimmicksStore } from '@/stores/useGimmicksStore';
 import { useSettingsStore } from '@/stores/useSettingsStore';
 import { boardDensity, placePiece } from '@/lib/engine/grid';
@@ -19,7 +21,7 @@ import {
   canPlaceWithObstacles,
   getClearedLinesMerged,
 } from '@/lib/engine/obstacles';
-import { comboMultiplier } from '@/lib/engine/scoring';
+import { comboMultiplier, comboTier } from '@/lib/engine/scoring';
 import type { PieceShape as ShapeT, PieceColor } from '@/lib/types';
 import { playSfx, setSessionMuted, vibrate } from '@/lib/audio/sfx';
 import { isTouchLikeEnvironment, useTouchLike } from '@/lib/useTouchLike';
@@ -78,7 +80,13 @@ export default function GimmicksGame() {
     gap: 5,
   });
   const [wobbleKey, setWobbleKey] = useState(0);
+  const [helpOpen, setHelpOpen] = useState(false);
+  const [announcement, setAnnouncement] = useState('');
   const boardWrapRef = useRef<HTMLDivElement>(null);
+  const {
+    showTrayChrome,
+    showRunStats,
+  } = useGameChromeVisibility();
 
   useEffect(() => {
     settingsHydrate();
@@ -94,6 +102,23 @@ export default function GimmicksGame() {
   useEffect(() => {
     setSessionMuted(muted);
   }, [muted]);
+
+  useEffect(() => {
+    const total = clearingRows.length + clearingCols.length;
+    if (total > 0) setAnnouncement(`Cleared ${total} line${total > 1 ? 's' : ''}.`);
+  }, [clearingRows, clearingCols]);
+
+  useEffect(() => {
+    if (pendingPower) {
+      setAnnouncement(`Pick a target for ${pendingPower.id.replace('_', ' ')}.`);
+    }
+  }, [pendingPower]);
+
+  useEffect(() => {
+    if (run?.gameOver) {
+      setAnnouncement(`Gimmicks run complete. Final score ${run.score.toLocaleString()}.`);
+    }
+  }, [run?.gameOver, run?.score]);
 
   useEffect(() => {
     if (typeof window === 'undefined') return;
@@ -400,18 +425,19 @@ export default function GimmicksGame() {
     return getClearedLinesMerged(placed, run.obstacles);
   }, [run, activePiece, ghost]);
 
+  const isTouchLike = useTouchLike();
+
   if (!run) return null;
 
   const density = Math.round(boardDensity(run.board) * 100);
   const chromeLive = pendingPower
     ? `pick a target · ${pendingPower.id.replace('_', ' ')}`
-    : preclear.rows.length + preclear.cols.length > 0
-      ? `${preclear.rows.length + preclear.cols.length} line${
-          preclear.rows.length + preclear.cols.length > 1 ? 's' : ''
-        } ready`
-      : '';
+    : '';
 
   const comboDisplay = `×${comboMultiplier(run.combo).toFixed(2)}`;
+  const peakTier = comboTier(run.comboPeak);
+  const peakTierLabel =
+    peakTier === 'none' ? null : peakTier.charAt(0).toUpperCase() + peakTier.slice(1);
 
   const totalClears =
     run.clears.single + run.clears.double + run.clears.triple + run.clears.quad;
@@ -423,7 +449,6 @@ export default function GimmicksGame() {
     { k: 'Used', v: run.usedPowerups.length },
   ];
 
-  const isTouchLike = useTouchLike();
   const trayHint = pendingPower
     ? 'tap a cell on the board to activate your powerup'
     : tapToSelect
@@ -441,6 +466,7 @@ export default function GimmicksGame() {
         running={!run.gameOver}
         muted={muted}
         onToggleMute={() => setMuted((v) => !v)}
+        onHelp={() => setHelpOpen((v) => !v)}
       />
 
       {powerToast && (
@@ -502,13 +528,11 @@ export default function GimmicksGame() {
                 : null
             }
             ghostColor={
-              !isDragging
-                ? ((activePiece?.color as PieceColor | null) ?? null)
-                : null
+              (activePiece?.color as PieceColor | null) ?? null
             }
             ghostLegal={!isDragging ? (ghost?.legal ?? true) : true}
-            preclearRows={!isDragging ? preclear.rows : []}
-            preclearCols={!isDragging ? preclear.cols : []}
+            preclearRows={preclear.rows}
+            preclearCols={preclear.cols}
             scorePopup={
               scorePopup && scorePopup.amount > 0
                 ? {
@@ -537,6 +561,7 @@ export default function GimmicksGame() {
               selectedIndex={!isDragging ? selectedTrayIndex : null}
               onPointerDown={handleTrayDown}
               hint={trayHint}
+              chromeVisible={showTrayChrome}
             />
           </div>
         </div>
@@ -562,7 +587,7 @@ export default function GimmicksGame() {
             </div>
           )}
           */}
-          <MiniStats rows={miniStatsRows} />
+          {showRunStats && <MiniStats rows={miniStatsRows} />}
         </div>
       </div>
 
@@ -625,6 +650,7 @@ export default function GimmicksGame() {
               <div className="go-stat">
                 <div className="eyebrow">peak combo</div>
                 <div className="num">×{comboMultiplier(run.comboPeak).toFixed(2)}</div>
+                {peakTierLabel && <div className="go-stat-note">{peakTierLabel}</div>}
               </div>
             </div>
             <div className="go-cta">
@@ -639,6 +665,18 @@ export default function GimmicksGame() {
           </div>
         </div>
       )}
+
+      {helpOpen && (
+        <GameHelpOverlay
+          mode="gimmicks"
+          isTouchLike={isTouchLike}
+          onClose={() => setHelpOpen(false)}
+        />
+      )}
+
+      <div className="sr-only" aria-live="polite" role="status">
+        {announcement}
+      </div>
     </>
   );
 }

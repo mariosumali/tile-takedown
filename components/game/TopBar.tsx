@@ -54,14 +54,16 @@ export default function TopBar({
         >
           {muted ? '/' : '\u266A'}
         </button>
-        <button
-          className="icon-btn"
-          title="Help"
-          aria-label="Help"
-          onClick={onHelp}
-        >
-          ?
-        </button>
+        {onHelp && (
+          <button
+            className="icon-btn"
+            title="Help"
+            aria-label="Help"
+            onClick={onHelp}
+          >
+            ?
+          </button>
+        )}
         <Link className="icon-btn" href="/settings" title="Settings" aria-label="Settings">
           &equiv;
         </Link>

@@ -1,5 +1,5 @@
-import { redirect } from 'next/navigation';
+import StatsView from '@/components/meta/StatsView';
 
 export default function AchievementsPage() {
-  redirect('/stats');
+  return <StatsView focus="achievements" />;
 }

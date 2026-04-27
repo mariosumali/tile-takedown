@@ -1,16 +1,30 @@
 'use client';
 
 import Link from 'next/link';
-import type { LevelDef, LevelStars } from '@/lib/types';
+import type { LevelBonusId, LevelDef, LevelStars } from '@/lib/types';
 
 type Props = {
   level: LevelDef;
   score: number;
   stars: LevelStars;
+  badges?: ReadonlyArray<LevelBonusId>;
   onRetry: () => void;
 };
 
-export default function LevelCompleteCard({ level, score, stars, onRetry }: Props) {
+const BADGE_COPY: Record<LevelBonusId, { label: string; desc: string }> = {
+  under_par: { label: 'Under par', desc: 'Finished in par moves or fewer.' },
+  no_undo: { label: 'No undo', desc: 'Clean run. No take-backs.' },
+  perfect_clear: { label: 'Perfect clear', desc: 'Emptied the board during the run.' },
+  combo_fire: { label: 'Fire combo', desc: 'Reached the fire combo tier.' },
+};
+
+export default function LevelCompleteCard({
+  level,
+  score,
+  stars,
+  badges = [],
+  onRetry,
+}: Props) {
   const passed = stars >= 1;
   const nextIndex = level.index + 1;
   const nextId = nextIndex <= 100 ? `L${String(nextIndex).padStart(3, '0')}` : null;
@@ -79,6 +93,17 @@ export default function LevelCompleteCard({ level, score, stars, onRetry }: Prop
             <div className="num">{level.parMoves}</div>
           </div>
         </div>
+
+        {badges.length > 0 && (
+          <div className="level-badge-list" aria-label="Bonus badges earned">
+            {badges.map((badge) => (
+              <div key={badge} className="level-badge-earned">
+                <div className="eyebrow">{BADGE_COPY[badge].label}</div>
+                <div>{BADGE_COPY[badge].desc}</div>
+              </div>
+            ))}
+          </div>
+        )}
 
         {stars < 3 && remainingForNextStar > 0 && (
           <p

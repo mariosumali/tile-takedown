@@ -1,8 +1,8 @@
 'use client';
 
 import Link from 'next/link';
-import type { RunState, LifetimeStats } from '@/lib/types';
-import { comboMultiplier } from '@/lib/engine/scoring';
+import type { RunState } from '@/lib/types';
+import { comboMultiplier, comboTier } from '@/lib/engine/scoring';
 
 type Props = {
   run: RunState;
@@ -29,7 +29,11 @@ export default function GameOverCard({
   const totalClears =
     run.clears.single + run.clears.double + run.clears.triple + run.clears.quad;
   const delta = run.score - highScore;
-  const isBest = run.score >= highScore && run.score > 0;
+  const isBest = run.score > highScore && run.score > 0;
+  const deltaText = delta.toLocaleString();
+  const peakTier = comboTier(run.comboPeak);
+  const peakTierLabel =
+    peakTier === 'none' ? null : peakTier.charAt(0).toUpperCase() + peakTier.slice(1);
 
   return (
     <div className="gameover-overlay" role="dialog" aria-label="Run complete">
@@ -42,7 +46,7 @@ export default function GameOverCard({
           {isBest ? (
             <span className="delta best">new high score</span>
           ) : (
-            <span className="delta">{delta >= 0 ? `+${delta}` : delta}</span>
+            <span className="delta">{delta >= 0 ? `+${deltaText}` : deltaText}</span>
           )}
         </div>
 
@@ -60,6 +64,7 @@ export default function GameOverCard({
             <div className="num">
               &times;{comboMultiplier(run.comboPeak).toFixed(2)}
             </div>
+            {peakTierLabel && <div className="go-stat-note">{peakTierLabel}</div>}
           </div>
           <div className="go-stat">
             <div className="eyebrow">duration</div>

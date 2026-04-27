@@ -13,6 +13,8 @@ import AchievementToast from './AchievementToast';
 import GameOverCard from './GameOverCard';
 import ClearEffects from './ClearEffects';
 import ComboFx from './ComboFx';
+import GameHelpOverlay from './GameHelpOverlay';
+import { useGameChromeVisibility } from './GameChromeControls';
 import PieceShape from '../PieceShape';
 import { useGameStore } from '@/stores/useGameStore';
 import { useSettingsStore } from '@/stores/useSettingsStore';
@@ -28,7 +30,12 @@ import { comboMultiplier } from '@/lib/engine/scoring';
 import type { PieceShape as ShapeT, PieceColor } from '@/lib/types';
 import { playSfx, vibrate, setSessionMuted } from '@/lib/audio/sfx';
 import { useApplyWorldTheme } from '@/lib/hooks/useApplyWorldTheme';
-import { isTouchLikeEnvironment } from '@/lib/useTouchLike';
+import { isTouchLikeEnvironment, useTouchLike } from '@/lib/useTouchLike';
+
+type HighScoreToast = {
+  runId: string;
+  score: number;
+};
 
 export default function ClassicGame() {
   useApplyWorldTheme();
@@ -85,8 +92,19 @@ export default function ClassicGame() {
   const [muted, setMuted] = useState(false);
   const [helpOpen, setHelpOpen] = useState(false);
   const [announcement, setAnnouncement] = useState('');
+  const [highScoreToast, setHighScoreToast] =
+    useState<HighScoreToast | null>(null);
+  const [runHighScoreBaseline, setRunHighScoreBaseline] = useState(0);
+  const highScoreBaselineRunRef = useRef<string | null>(null);
+  const highScoreBaselineValueRef = useRef(0);
+  const highScoreToastRunRef = useRef<string | null>(null);
   /** Narrow stage: combined next-up + undo card in the sidebar. */
   const [narrowViewport, setNarrowViewport] = useState(false);
+  const {
+    showTrayChrome,
+    showRunStats,
+  } = useGameChromeVisibility();
+  const isTouchLike = useTouchLike();
 
   // Read actual board-cell dimensions from the live CSS custom properties so the
   // ghost math stays accurate across all breakpoints (mobile uses vw-based cells).
@@ -146,6 +164,44 @@ export default function ClassicGame() {
       startRun();
     }
   }, [hydrated, settingsHydrated, run, startRun]);
+
+  const runId = run?.id ?? null;
+
+  useEffect(() => {
+    if (!runId || !statsHydrated) return;
+    if (highScoreBaselineRunRef.current === runId) return;
+
+    highScoreBaselineRunRef.current = runId;
+    highScoreBaselineValueRef.current = highScore;
+    highScoreToastRunRef.current = null;
+    setRunHighScoreBaseline(highScore);
+    setHighScoreToast(null);
+  }, [runId, statsHydrated, highScore]);
+
+  useEffect(() => {
+    if (!run || !statsHydrated || run.gameOver) return;
+    if (highScoreBaselineRunRef.current !== run.id) return;
+    if (run.score <= 0 || run.score <= highScoreBaselineValueRef.current) return;
+    if (highScoreToastRunRef.current === run.id) return;
+
+    highScoreToastRunRef.current = run.id;
+    setHighScoreToast({ runId: run.id, score: run.score });
+    playSfx('achievement', !muted, sfxVolume);
+    vibrate([12, 20, 12], hapticsOn);
+    setAnnouncement(`New high score ${run.score.toLocaleString()}.`);
+  }, [run, statsHydrated, muted, sfxVolume, hapticsOn]);
+
+  useEffect(() => {
+    if (!highScoreToast) return;
+
+    const t = window.setTimeout(() => {
+      setHighScoreToast((current) =>
+        current?.runId === highScoreToast.runId ? null : current,
+      );
+    }, 3200);
+
+    return () => window.clearTimeout(t);
+  }, [highScoreToast]);
 
   const activePiece =
     selectedTrayIndex !== null && run ? run.tray[selectedTrayIndex] : null;
@@ -389,11 +445,11 @@ export default function ClassicGame() {
   }, [run?.gameOver, run?.score, muted, sfxVolume, hapticsOn]);
 
   useEffect(() => {
-    if (toast) {
+    if (toast && !highScoreToast) {
       playSfx('achievement', !muted, sfxVolume);
       vibrate([12, 20, 12], hapticsOn);
     }
-  }, [toast, muted, sfxVolume, hapticsOn]);
+  }, [toast, highScoreToast, muted, sfxVolume, hapticsOn]);
 
   // Keyboard shortcuts
   useEffect(() => {
@@ -484,12 +540,6 @@ export default function ClassicGame() {
   }
 
   const density = Math.round(boardDensity(run.board) * 100);
-  const chromeLive =
-    preclear.rows.length + preclear.cols.length > 0
-      ? `${preclear.rows.length + preclear.cols.length} line${
-          preclear.rows.length + preclear.cols.length > 1 ? 's' : ''
-        } ready`
-      : '';
 
   const miniStatsRows = [
     { k: 'Placed', v: run.placements },
@@ -518,27 +568,32 @@ export default function ClassicGame() {
         onHelp={() => setHelpOpen((v) => !v)}
       />
 
-      {toast && <AchievementToast key={toast.id} name={toast.name} desc={toast.desc} icon={toast.icon} />}
+      {highScoreToast ? (
+        <AchievementToast
+          key={`high-score-${highScoreToast.runId}`}
+          eyebrow="record"
+          name="New high score"
+          desc={`${highScoreToast.score.toLocaleString()} and climbing`}
+          icon="★"
+        />
+      ) : (
+        toast && (
+          <AchievementToast
+            key={toast.id}
+            name={toast.name}
+            desc={toast.desc}
+            icon={toast.icon}
+          />
+        )
+      )}
 
       <div className="stage">
-        <div className="left-stack">
+        <div className="left-stack classic-left-stack">
           <HudCard
             variant="score"
             label="score"
             value={run.score.toLocaleString()}
             sub={run.placements > 0 ? `${run.placements} placements` : 'place your first piece'}
-          />
-          <HudCard
-            variant="high"
-            label="high score"
-            value={highScore.toLocaleString()}
-            sub={
-              run.score > highScore
-                ? `+${(run.score - highScore).toLocaleString()}`
-                : highScore > 0
-                  ? `delta ${(run.score - highScore).toLocaleString()}`
-                  : 'first run'
-            }
           />
           <HudCard
             variant="combo"
@@ -560,11 +615,11 @@ export default function ClassicGame() {
               !isDragging && ghost ? { row: ghost.row, col: ghost.col } : null
             }
             ghostColor={
-              !isDragging ? (activePiece?.color as PieceColor | null) ?? null : null
+              (activePiece?.color as PieceColor | null) ?? null
             }
             ghostLegal={!isDragging ? ghost?.legal ?? true : true}
-            preclearRows={!isDragging ? preclear.rows : []}
-            preclearCols={!isDragging ? preclear.cols : []}
+            preclearRows={preclear.rows}
+            preclearCols={preclear.cols}
             scorePopup={
               scorePopup && scorePopup.amount > 0
                 ? {
@@ -579,7 +634,7 @@ export default function ClassicGame() {
             clearingCols={clearingCols}
             clearingBoard={clearingBoard}
             onClearComplete={commitClear}
-            chromeLive={chromeLive}
+            chromeLive=""
             density={density}
             onCellDown={onCellDown}
             onCellEnter={onCellEnter}
@@ -596,12 +651,12 @@ export default function ClassicGame() {
               selectedIndex={!isDragging ? selectedTrayIndex : null}
               onPointerDown={handleTrayDown}
               hint={trayHint}
+              chromeVisible={showTrayChrome}
             />
           </div>
         </div>
 
         <div className="right-stack">
-          {/* Next up + undos cards temporarily hidden.
           {narrowViewport ? (
             <>
               <NextTrayUndoComboCard
@@ -618,11 +673,9 @@ export default function ClassicGame() {
                 <NextTrayCard pieces={run.nextTray.map((p) => p.shape)} />
               )}
               <UndoCard used={run.undosUsed} total={3} />
-              <MiniStats rows={miniStatsRows} />
+              {showRunStats && <MiniStats rows={miniStatsRows} />}
             </>
           )}
-          */}
-          <MiniStats rows={miniStatsRows} />
         </div>
       </div>
 
@@ -662,13 +715,19 @@ export default function ClassicGame() {
       {run.gameOver && (
         <GameOverCard
           run={run}
-          highScore={Math.max(highScore, run.score)}
+          highScore={runHighScoreBaseline}
           onPlayAgain={() => startRun()}
           durationMs={runDurationMs}
         />
       )}
 
-      {helpOpen && <HelpOverlay onClose={() => setHelpOpen(false)} />}
+      {helpOpen && (
+        <GameHelpOverlay
+          mode="classic"
+          isTouchLike={isTouchLike}
+          onClose={() => setHelpOpen(false)}
+        />
+      )}
 
       <div className="sr-only" aria-live="polite" role="status">
         {announcement}
@@ -698,34 +757,3 @@ function nearestFilledCell(
   return best ?? { r: 0, c: 0 };
 }
 
-function HelpOverlay({ onClose }: { onClose: () => void }) {
-  useEffect(() => {
-    const onKey = (e: KeyboardEvent) => {
-      if (e.key === 'Escape') onClose();
-    };
-    window.addEventListener('keydown', onKey);
-    return () => window.removeEventListener('keydown', onKey);
-  }, [onClose]);
-  return (
-    <div className="help-overlay" role="dialog" aria-label="Controls" onClick={onClose}>
-      <div className="help-card" onClick={(e) => e.stopPropagation()}>
-        <div className="eyebrow">controls</div>
-        <h3 style={{ fontFamily: 'var(--font-display)', fontSize: 38, marginTop: 8 }}>
-          How it works
-        </h3>
-        <ul className="help-list">
-          <li><kbd className="kbd">1</kbd><kbd className="kbd">2</kbd><kbd className="kbd">3</kbd> select a tray slot</li>
-          <li><kbd className="kbd">↑↓←→</kbd> move the ghost placement</li>
-          <li><kbd className="kbd">↵</kbd> place at ghost</li>
-          <li><kbd className="kbd">R</kbd> rotate (if enabled; keyboard only)</li>
-          <li><kbd className="kbd">Z</kbd> undo</li>
-          <li><kbd className="kbd">M</kbd> mute</li>
-          <li><kbd className="kbd">Esc</kbd> close / cancel</li>
-        </ul>
-        <button className="btn btn-primary" onClick={onClose} style={{ marginTop: 24 }}>
-          Got it
-        </button>
-      </div>
-    </div>
-  );
-}

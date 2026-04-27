@@ -3,6 +3,7 @@
 import { Fragment as ReactFragment, useEffect, useState } from 'react';
 import Nav from '@/components/Nav';
 import Footer from '@/components/Footer';
+import { useGameChromeVisibility } from '@/components/game/GameChromeControls';
 import { useSettingsStore, DEFAULT_SETTINGS } from '@/stores/useSettingsStore';
 import { playSfx } from '@/lib/audio/sfx';
 import { CHEATS, isKnownCheat, normalizeCheatInput } from '@/lib/cheats';
@@ -44,38 +45,38 @@ const WORLD_THEMES: WorldThemeMeta[] = [
   },
   {
     id: 'jungle',
-    label: 'Jungle Temple',
-    flavor: 'Moss, ochre, weathered stone.',
+    label: 'Jungle',
+    flavor: 'Stone blocks. Vines in the cracks.',
     group: 'Naturals',
     swatch: {
       backdrop: 'linear-gradient(180deg, #3f5a2f, #1e2f18)',
       board: '#2f4a2a',
-      tiles: ['#c75a3b', '#e0a73a', '#4e7a3a'],
+      tiles: ['#a45e45', '#b69a4a', '#5d7d4c'],
       border: '#0e1a0d',
     },
   },
   {
     id: 'volcano',
-    label: 'Volcano Forge',
-    flavor: 'Cracked basalt. Molten seams.',
+    label: 'Volcano',
+    flavor: 'Blocky crust. Lava pockets.',
     group: 'Naturals',
     swatch: {
       backdrop: 'linear-gradient(180deg, #2a110b, #3a1a0e)',
       board: '#1a0d0b',
-      tiles: ['#ff4a28', '#ffb640', '#c23a52'],
+      tiles: ['#ff5a22', '#ffb12c', '#d44735'],
       border: '#ff6a28',
     },
   },
   {
     id: 'abyssal',
-    label: 'Abyssal Reef',
-    flavor: 'Bioluminescent deep.',
+    label: 'Abyssal',
+    flavor: 'Porous reef. Chunky coral.',
     group: 'Naturals',
     swatch: {
-      backdrop: 'linear-gradient(180deg, #0a1a30, #040c1a)',
+      backdrop: 'linear-gradient(180deg, #1c5c74, #061b36)',
       board: '#0a1b30',
-      tiles: ['#ff7a8a', '#4acde6', '#4ed0a5'],
-      border: '#4acde6',
+      tiles: ['#f06f7f', '#46bfd5', '#49c897'],
+      border: '#47cfe8',
     },
   },
   {
@@ -92,25 +93,25 @@ const WORLD_THEMES: WorldThemeMeta[] = [
   },
   {
     id: 'arctic',
-    label: 'Arctic Aurora',
-    flavor: 'Glacial ice. Aurora sky.',
+    label: 'Arctic',
+    flavor: 'Translucent ice. Trapped bubbles.',
     group: 'Naturals',
     swatch: {
       backdrop: 'linear-gradient(180deg, #b4c9d8, #8fadc0)',
       board: '#2a4560',
-      tiles: ['#6ec5a0', '#c8a4e0', '#5ba4da'],
+      tiles: ['#a7dfd0', '#d8d3f0', '#9bd6f0'],
       border: '#142538',
     },
   },
   {
     id: 'desert',
-    label: 'Desert Glyph',
-    flavor: 'Sandstone. Ochre. Turquoise.',
+    label: 'Desert',
+    flavor: 'Sunbaked walls. Chipped mortar.',
     group: 'Naturals',
     swatch: {
       backdrop: 'linear-gradient(180deg, #fae7c2, #c09770)',
       board: '#a8825a',
-      tiles: ['#c85236', '#e6aa3c', '#3ea0a0'],
+      tiles: ['#c76a46', '#d8aa56', '#6ca1a0'],
       border: '#3a251a',
     },
   },
@@ -128,37 +129,37 @@ const WORLD_THEMES: WorldThemeMeta[] = [
   },
   {
     id: 'haunted',
-    label: 'Haunted Manor',
-    flavor: 'Fog, bone, lantern gold.',
+    label: 'Haunted',
+    flavor: 'Dark brick, bones, tiny skulls.',
     group: 'Atmospheric',
     swatch: {
-      backdrop: 'linear-gradient(180deg, #16161f, #14141c)',
+      backdrop: 'linear-gradient(180deg, #363646, #0f0f18)',
       board: '#14141c',
-      tiles: ['#c23a3a', '#e8a838', '#5a7560'],
+      tiles: ['#7a3c3e', '#8a6b3c', '#4d5a6e'],
       border: '#3a3a4a',
     },
   },
   {
     id: 'neon',
-    label: 'Neon Grid',
-    flavor: 'Electric cyan. Hot magenta.',
+    label: 'Neon',
+    flavor: 'PCB traces. Diode glow.',
     group: 'Playful',
     swatch: {
       backdrop: 'linear-gradient(180deg, #0a1124, #040610)',
       board: '#050814',
-      tiles: ['#ff2eb7', '#2ee9ff', '#38ff7c'],
-      border: '#2ee9ff',
+      tiles: ['#ff35bd', '#33e8ff', '#40ff87'],
+      border: '#33e8ff',
     },
   },
   {
     id: 'arcade',
-    label: 'Retro Arcade',
-    flavor: 'CRT phosphor. Pixel sharp.',
+    label: 'Arcade',
+    flavor: 'Rough pixels. Low-res charm.',
     group: 'Playful',
     swatch: {
       backdrop: 'linear-gradient(180deg, #0a140a, #050a05)',
       board: '#0a1a0a',
-      tiles: ['#ff3a6e', '#ffd728', '#3ab4ff'],
+      tiles: ['#ff3f73', '#ffd831', '#3eb9ff'],
       border: '#5effa0',
     },
   },
@@ -172,9 +173,9 @@ const WORLD_THEME_GROUPS: Array<WorldThemeMeta['group']> = [
 ];
 
 const PIECE_SETS: { id: PieceSet; label: string; desc: string }[] = [
-  { id: 'classic', label: 'Classic', desc: 'The full default mix.' },
+  { id: 'classic', label: 'Classic', desc: 'Curated tetros, blocks, bars, and bends.' },
   { id: 'tetro_only', label: 'Tetro-only', desc: 'Only 4-cell tetrominoes.' },
-  { id: 'pentomino_chaos', label: 'Pentomino chaos', desc: 'Weighted toward 5-cell pieces.' },
+  { id: 'crazy', label: 'Crazy', desc: 'The old everything-goes classic mix.' },
   { id: 'small_only', label: 'Small only', desc: '1–3 cell pieces only.' },
 ];
 
@@ -192,9 +193,13 @@ export default function SettingsView() {
   const instantTrayRefill = useSettingsStore((s) => s.instantTrayRefill);
   const sfxVolume = useSettingsStore((s) => s.sfxVolume);
   const haptics = useSettingsStore((s) => s.haptics);
+  const { showTrayChrome, showRunStats } = useGameChromeVisibility();
   const cheats = useSettingsStore((s) => s.cheats);
   const activateCheat = useSettingsStore((s) => s.activateCheat);
   const deactivateCheat = useSettingsStore((s) => s.deactivateCheat);
+  const [worldPickerOpen, setWorldPickerOpen] = useState(false);
+  const selectedWorldTheme =
+    WORLD_THEMES.find((w) => w.id === worldTheme) ?? WORLD_THEMES[0];
 
   useEffect(() => {
     hydrate();
@@ -211,33 +216,56 @@ export default function SettingsView() {
         </header>
 
         <section className="meta-section">
-          <div className="eyebrow">world theme</div>
-          <p className="meta-hint" style={{ marginBottom: 12 }}>
-            Immersive visual overhaul that only applies during play. Classic keeps
-            the default look.
-          </p>
-          <div className="opt-grid">
-            {WORLD_THEME_GROUPS.map((group) => {
-              const items = WORLD_THEMES.filter((w) => w.group === group);
-              if (items.length === 0) return null;
-              return (
-                <ReactFragment key={group}>
-                  <div className="world-theme-subhead">{group}</div>
-                  {items.map((w) => (
-                    <button
-                      key={w.id}
-                      className={`opt-card world-theme-card ${worldTheme === w.id ? 'on' : ''}`}
-                      onClick={() => setV('worldTheme', w.id)}
-                    >
-                      <WorldThemePreview meta={w} />
-                      <div className="opt-label">{w.label}</div>
-                      <div className="flavor">{w.flavor}</div>
-                    </button>
-                  ))}
-                </ReactFragment>
-              );
-            })}
-          </div>
+          <details
+            className="world-theme-picker"
+            open={worldPickerOpen}
+            onToggle={(e) => setWorldPickerOpen(e.currentTarget.open)}
+          >
+            <summary className="world-theme-summary">
+              <div className="world-theme-summary-copy">
+                <div className="eyebrow">world theme</div>
+                <div className="world-theme-current">
+                  <WorldThemePreview meta={selectedWorldTheme} />
+                  <div>
+                    <div className="opt-label">{selectedWorldTheme.label}</div>
+                    <div className="flavor">{selectedWorldTheme.flavor}</div>
+                  </div>
+                </div>
+                <p className="meta-hint">
+                  Immersive visual overhaul that only applies during play.
+                </p>
+              </div>
+              <span className="world-theme-summary-action" aria-hidden>
+                <span className="world-theme-action-open">Change</span>
+                <span className="world-theme-action-close">Collapse</span>
+              </span>
+            </summary>
+            <div className="opt-grid world-theme-grid">
+              {WORLD_THEME_GROUPS.map((group) => {
+                const items = WORLD_THEMES.filter((w) => w.group === group);
+                if (items.length === 0) return null;
+                return (
+                  <ReactFragment key={group}>
+                    <div className="world-theme-subhead">{group}</div>
+                    {items.map((w) => (
+                      <button
+                        key={w.id}
+                        className={`opt-card world-theme-card ${worldTheme === w.id ? 'on' : ''}`}
+                        onClick={() => {
+                          setV('worldTheme', w.id);
+                          setWorldPickerOpen(false);
+                        }}
+                      >
+                        <WorldThemePreview meta={w} />
+                        <div className="opt-label">{w.label}</div>
+                        <div className="flavor">{w.flavor}</div>
+                      </button>
+                    ))}
+                  </ReactFragment>
+                );
+              })}
+            </div>
+          </details>
         </section>
 
         <section className="meta-section">
@@ -307,6 +335,27 @@ export default function SettingsView() {
               on={haptics}
               onChange={(v) => setV('haptics', v)}
             />
+          </div>
+        </section>
+
+        <section className="meta-section">
+          <div className="eyebrow">display</div>
+          <div className="toggle-list">
+            <Toggle
+              label="Tray frame"
+              desc="Show the tray heading, hint, frame, slot outlines, and slot numbers."
+              on={showTrayChrome}
+              onChange={(v) => setV('showTrayChrome', v)}
+            />
+            <Toggle
+              label="This run"
+              desc="Show the per-run stats card beside the board."
+              on={showRunStats}
+              onChange={(v) => setV('showRunStats', v)}
+            />
+          </div>
+          <div className="meta-hint">
+            Tray frame defaults hidden. This run defaults visible on desktop and tucked away on mobile.
           </div>
         </section>
 

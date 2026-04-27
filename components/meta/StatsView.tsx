@@ -17,7 +17,11 @@ function formatDuration(ms: number): string {
   return `${m}m`;
 }
 
-export default function StatsView() {
+type Props = {
+  focus?: 'stats' | 'achievements';
+};
+
+export default function StatsView({ focus = 'stats' }: Props) {
   const hydrated = useStatsStore((s) => s.hydrated);
   const hydrate = useStatsStore((s) => s.hydrate);
   const stats = useStatsStore((s) => s.stats);
@@ -38,6 +42,8 @@ export default function StatsView() {
   const avg = stats.gamesPlayed
     ? Math.round(stats.totalScore / stats.gamesPlayed)
     : 0;
+  const classicRecord = stats.modeRecords?.classic;
+  const gimmicksRecord = stats.modeRecords?.gimmicks;
 
   const unlockedCount = Object.keys(achievements).length;
   const achTotal = ACHIEVEMENTS.length;
@@ -49,13 +55,27 @@ export default function StatsView() {
       <main className="meta-stage">
         <header className="meta-header">
           <div className="eyebrow">meta</div>
-          <h1 className="meta-title">stats</h1>
-          <p className="meta-sub">your lifetime play, at a glance.</p>
+          <h1 className="meta-title">{focus === 'achievements' ? 'achievements' : 'stats'}</h1>
+          <p className="meta-sub">
+            {focus === 'achievements'
+              ? 'badges, bragging rights, and tiny paper trophies.'
+              : 'your lifetime play, at a glance.'}
+          </p>
         </header>
 
         <section className="stats-grid">
           <StatCard label="Games" value={stats.gamesPlayed} />
           <StatCard label="High score" value={stats.highScore.toLocaleString()} accent="tomato" />
+          <StatCard
+            label="Classic PB"
+            value={(classicRecord?.highScore ?? 0).toLocaleString()}
+            sub={classicRecord ? `${classicRecord.gamesPlayed} runs` : 'no runs yet'}
+          />
+          <StatCard
+            label="Gimmicks PB"
+            value={(gimmicksRecord?.highScore ?? 0).toLocaleString()}
+            sub={gimmicksRecord ? `${gimmicksRecord.gamesPlayed} runs` : 'no runs yet'}
+          />
           <StatCard label="Total score" value={stats.totalScore.toLocaleString()} />
           <StatCard label="Avg per run" value={avg.toLocaleString()} />
           <StatCard label="Placements" value={stats.totalPlacements.toLocaleString()} />
@@ -136,6 +156,7 @@ export default function StatsView() {
                   <div key={r.id} className="run-row">
                     <div className="run-date">
                       {new Date(r.startedAt).toLocaleDateString()}
+                      <span className="run-mode">{r.mode ?? 'classic'}</span>
                     </div>
                     <div className="run-score">
                       <strong>{r.score.toLocaleString()}</strong>

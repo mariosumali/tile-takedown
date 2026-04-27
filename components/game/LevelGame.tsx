@@ -10,6 +10,8 @@ import MiniStats from './MiniStats';
 import LevelCompleteCard from './LevelCompleteCard';
 import ClearEffects from './ClearEffects';
 import ComboFx from './ComboFx';
+import GameHelpOverlay from './GameHelpOverlay';
+import { useGameChromeVisibility } from './GameChromeControls';
 import PieceShape from '../PieceShape';
 import { useLevelsStore } from '@/stores/useLevelsStore';
 import { useSettingsStore } from '@/stores/useSettingsStore';
@@ -20,10 +22,10 @@ import {
   placePiece,
 } from '@/lib/engine/grid';
 import { comboMultiplier } from '@/lib/engine/scoring';
-import type { PieceShape as ShapeT, PieceColor } from '@/lib/types';
+import type { LevelBonusId, PieceShape as ShapeT, PieceColor } from '@/lib/types';
 import { playSfx, setSessionMuted } from '@/lib/audio/sfx';
 import { useApplyWorldTheme } from '@/lib/hooks/useApplyWorldTheme';
-import { isTouchLikeEnvironment } from '@/lib/useTouchLike';
+import { isTouchLikeEnvironment, useTouchLike } from '@/lib/useTouchLike';
 
 type Props = {
   levelId: string;
@@ -43,6 +45,7 @@ export default function LevelGame({ levelId }: Props) {
   const clears = useLevelsStore((s) => s.clears);
   const perfectClears = useLevelsStore((s) => s.perfectClears);
   const reshuffleUsed = useLevelsStore((s) => s.reshuffleUsed);
+  const undosUsed = useLevelsStore((s) => s.undosUsed);
   const selectedTrayIndex = useLevelsStore((s) => s.selectedTrayIndex);
   const ghost = useLevelsStore((s) => s.ghost);
   const scorePopup = useLevelsStore((s) => s.scorePopup);
@@ -79,7 +82,14 @@ export default function LevelGame({ levelId }: Props) {
   const [pointerKind, setPointerKind] = useState<'mouse' | 'touch' | 'pen'>('mouse');
   const [cellDim, setCellDim] = useState<{ cell: number; gap: number }>({ cell: 60, gap: 5 });
   const [wobbleKey, setWobbleKey] = useState(0);
+  const [helpOpen, setHelpOpen] = useState(false);
+  const [announcement, setAnnouncement] = useState('');
   const boardWrapRef = useRef<HTMLDivElement>(null);
+  const {
+    showTrayChrome,
+    showRunStats,
+  } = useGameChromeVisibility();
+  const isTouchLike = useTouchLike();
 
   useEffect(() => {
     settingsHydrate();
@@ -356,6 +366,23 @@ export default function LevelGame({ levelId }: Props) {
     return cleared;
   }, [level, activePiece, ghost, board, mask]);
 
+  useEffect(() => {
+    const total = clearingRows.length + clearingCols.length;
+    if (total > 0) setAnnouncement(`Cleared ${total} line${total > 1 ? 's' : ''}.`);
+  }, [clearingRows, clearingCols]);
+
+  useEffect(() => {
+    if (passed && finishedStars === null) {
+      setAnnouncement('Target reached. Keep going for more stars, or finish the level.');
+    }
+  }, [passed, finishedStars]);
+
+  useEffect(() => {
+    if (finishedStars !== null) {
+      setAnnouncement(`Level complete with ${finishedStars} star${finishedStars === 1 ? '' : 's'}.`);
+    }
+  }, [finishedStars]);
+
   if (!level) {
     return (
       <div style={{ padding: '80px 24px', textAlign: 'center' }}>
@@ -382,14 +409,7 @@ export default function LevelGame({ levelId }: Props) {
     { k: 'Peak', v: `×${comboMultiplier(comboPeak).toFixed(2)}` },
   ];
 
-  const chromeLive =
-    preclear.rows.length + preclear.cols.length > 0
-      ? `${preclear.rows.length + preclear.cols.length} line${
-          preclear.rows.length + preclear.cols.length > 1 ? 's' : ''
-        } ready`
-      : passed
-        ? 'target hit · keep going for more stars'
-        : '';
+  const chromeLive = passed ? 'target hit · keep going for more stars' : '';
 
   const comboDisplay = `×${comboMultiplier(combo).toFixed(2)}`;
 
@@ -398,6 +418,12 @@ export default function LevelGame({ levelId }: Props) {
     : rotationEnabled
       ? 'drag onto the board · R to rotate'
       : 'drag a piece onto the board';
+
+  const levelBadges: LevelBonusId[] = [];
+  if (placements > 0 && placements <= level.parMoves) levelBadges.push('under_par');
+  if (undosUsed === 0) levelBadges.push('no_undo');
+  if (perfectClears > 0) levelBadges.push('perfect_clear');
+  if (comboPeak >= 6) levelBadges.push('combo_fire');
 
   return (
     <>
@@ -408,7 +434,7 @@ export default function LevelGame({ levelId }: Props) {
         running={finishedStars === null}
         muted={muted}
         onToggleMute={() => setMuted((v) => !v)}
-        onHelp={undefined}
+        onHelp={() => setHelpOpen((v) => !v)}
       />
 
       <div className="stage">
@@ -442,11 +468,11 @@ export default function LevelGame({ levelId }: Props) {
               !isDragging && ghost ? { row: ghost.row, col: ghost.col } : null
             }
             ghostColor={
-              !isDragging ? (activePiece?.color as PieceColor | null) ?? null : null
+              (activePiece?.color as PieceColor | null) ?? null
             }
             ghostLegal={!isDragging ? ghost?.legal ?? true : true}
-            preclearRows={!isDragging ? preclear.rows : []}
-            preclearCols={!isDragging ? preclear.cols : []}
+            preclearRows={preclear.rows}
+            preclearCols={preclear.cols}
             scorePopup={
               scorePopup && scorePopup.amount > 0
                 ? {
@@ -474,6 +500,7 @@ export default function LevelGame({ levelId }: Props) {
               selectedIndex={!isDragging ? selectedTrayIndex : null}
               onPointerDown={handleTrayDown}
               hint={trayHint}
+              chromeVisible={showTrayChrome}
             />
           </div>
         </div>
@@ -525,7 +552,7 @@ export default function LevelGame({ levelId }: Props) {
               </div>
             </div>
           )}
-          <MiniStats rows={miniStatsRows} />
+          {showRunStats && <MiniStats rows={miniStatsRows} />}
         </div>
       </div>
 
@@ -561,9 +588,22 @@ export default function LevelGame({ levelId }: Props) {
           level={level}
           score={score}
           stars={finishedStars}
+          badges={levelBadges}
           onRetry={() => startLevel(level.id)}
         />
       )}
+
+      {helpOpen && (
+        <GameHelpOverlay
+          mode="levels"
+          isTouchLike={isTouchLike}
+          onClose={() => setHelpOpen(false)}
+        />
+      )}
+
+      <div className="sr-only" aria-live="polite" role="status">
+        {announcement}
+      </div>
     </>
   );
 }

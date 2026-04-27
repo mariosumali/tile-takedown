@@ -46,7 +46,7 @@ const features: Feature[] = [
     iconClass: 'fi-c',
     title: 'Piece sets',
     desc:
-      'Full 19-piece roster, tetrominoes only, pentomino chaos, or small pieces only. Your call.',
+      'Curated classic, tetrominoes only, Crazy, or small pieces only. Your call.',
   },
   {
     icon: '📅',

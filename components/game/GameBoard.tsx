@@ -118,6 +118,7 @@ export default function GameBoard({
 }: Props) {
   const rowCount = board.length;
   const colCount = board[0]?.length ?? 0;
+  const preclearColor = ghostColor ?? 'olive';
 
   const ghostSet = new Set<string>();
   if (ghostShape && ghostAnchor) {
@@ -214,13 +215,18 @@ export default function GameBoard({
               const inClearingCol = clearingCols.includes(c);
               const isClearingCell = (inClearingRow || inClearingCol) && playable;
 
+              const isPreclearLine =
+                (preclearRow !== null && r === preclearRow) ||
+                preclearRows.includes(r) ||
+                preclearCols.includes(c);
               const isPreclear =
                 playable &&
                 !isClearingCell &&
-                ((preclearRow !== null && r === preclearRow && v) ||
-                  (preclearRows.includes(r) && v) ||
-                  (preclearCols.includes(c) && v));
-              if (isPreclear) classes.push('preclear');
+                isPreclearLine &&
+                (Boolean(v) || Boolean(obstacle) || ghostSet.has(key));
+              if (isPreclear) {
+                classes.push('preclear', `preclear-fill-${preclearColor}`);
+              }
 
               if (!v && playable && !obstacle && ghostSet.has(key)) {
                 classes.push('filled', 'ghost');
