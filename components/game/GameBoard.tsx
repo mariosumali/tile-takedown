@@ -1,6 +1,6 @@
 'use client';
 
-import { motion } from 'framer-motion';
+import { motion, useReducedMotion } from 'framer-motion';
 import type {
   BoardState,
   Obstacle,
@@ -42,6 +42,8 @@ type Props = {
   ghostLegal?: boolean;
   /** Parent is responsible for clearing this after the popup's 900ms lifetime. */
   scorePopup?: { id: number | string; amount: number; mult: string; combo: number } | null;
+  /** Cells from the last legal placement, used for a short settle animation. */
+  settleCells?: ReadonlyArray<{ row: number; col: number }>;
   chromeLive?: string;
   density?: number;
   onCellDown?: (row: number, col: number, e: React.PointerEvent) => void;
@@ -75,11 +77,12 @@ function popDelaySec(
   c: number,
   rows: ReadonlyArray<number>,
   cols: ReadonlyArray<number>,
+  staggerMs: number = STAGGER_MS,
 ): number {
   const inRow = rows.includes(r);
   const inCol = cols.includes(c);
-  const rowDelay = inRow ? c * STAGGER_MS : Infinity;
-  const colDelay = inCol ? r * STAGGER_MS : Infinity;
+  const rowDelay = inRow ? c * staggerMs : Infinity;
+  const colDelay = inCol ? r * staggerMs : Infinity;
   return Math.min(rowDelay, colDelay) / 1000;
 }
 
@@ -105,6 +108,7 @@ export default function GameBoard({
   ghostColor = 'olive',
   ghostLegal = true,
   scorePopup = null,
+  settleCells = [],
   chromeLive = '',
   density,
   onCellDown,
@@ -116,6 +120,7 @@ export default function GameBoard({
   clearingBoard = null,
   onClearComplete,
 }: Props) {
+  const reduceMotion = useReducedMotion();
   const rowCount = board.length;
   const colCount = board[0]?.length ?? 0;
   const preclearColor = ghostColor ?? 'olive';
@@ -138,6 +143,11 @@ export default function GameBoard({
   }
 
   const isClearing = clearingRows.length + clearingCols.length > 0;
+  const clearLineCount = clearingRows.length + clearingCols.length;
+  const popDuration =
+    clearLineCount >= 3 ? 0.58 : clearLineCount === 2 ? POP_DURATION : 0.44;
+  const staggerMs = clearLineCount >= 3 ? 34 : clearLineCount === 2 ? STAGGER_MS : 20;
+  const settleSet = new Set(settleCells.map(({ row, col }) => `${row}-${col}`));
 
   const clearingCells: Array<{ r: number; c: number; color: PieceColor; delay: number }> = [];
   let maxDelay = 0;
@@ -147,7 +157,7 @@ export default function GameBoard({
         if (!isPlayable(mask, r, c)) continue;
         const color = clearingBoard[r]?.[c];
         if (!color) continue;
-        const delay = popDelaySec(r, c, clearingRows, clearingCols);
+        const delay = popDelaySec(r, c, clearingRows, clearingCols, staggerMs);
         clearingCells.push({ r, c, color, delay });
         if (delay > maxDelay) maxDelay = delay;
       }
@@ -158,7 +168,7 @@ export default function GameBoard({
         if (!isPlayable(mask, r, c)) continue;
         const color = clearingBoard[r]?.[c];
         if (!color) continue;
-        const delay = popDelaySec(r, c, clearingRows, clearingCols);
+        const delay = popDelaySec(r, c, clearingRows, clearingCols, staggerMs);
         clearingCells.push({ r, c, color, delay });
         if (delay > maxDelay) maxDelay = delay;
       }
@@ -201,6 +211,9 @@ export default function GameBoard({
 
               if (!playable) classes.push('void');
               if (v && playable) classes.push('filled', `fill-${v}`);
+              if (v && playable && settleSet.has(key) && !isClearing) {
+                classes.push('placed-settle');
+              }
 
               if (obstacle && playable) {
                 if (obstacle.kind === 'locked') classes.push('filled', 'locked');
@@ -236,7 +249,7 @@ export default function GameBoard({
 
               const justVacated = !v && isClearingCell;
               const delay = justVacated
-                ? popDelaySec(r, c, clearingRows, clearingCols) + POP_DURATION
+                ? popDelaySec(r, c, clearingRows, clearingCols, staggerMs) + popDuration
                 : 0;
 
               return (
@@ -250,8 +263,8 @@ export default function GameBoard({
                   transition={
                     justVacated
                       ? {
-                          duration: FADEIN_DURATION + 0.001,
-                          delay,
+                          duration: reduceMotion ? 0.01 : FADEIN_DURATION + 0.001,
+                          delay: reduceMotion ? 0 : delay,
                           times: [0, 0.001, 1],
                         }
                       : { duration: 0 }
@@ -309,22 +322,26 @@ export default function GameBoard({
                     y: 0,
                     filter: 'brightness(1)',
                   }}
-                  animate={{
-                    scale: [1.0, 1.08, 1.28, 0],
-                    rotate: [0, sign * 4, 0, 0],
-                    filter: [
-                      'brightness(1)',
-                      'brightness(1)',
-                      'brightness(1.5)',
-                      'brightness(1.5)',
-                    ],
-                    y: [0, 0, 0, -12],
-                    opacity: [1, 1, 1, 0],
-                  }}
+                  animate={
+                    reduceMotion
+                      ? { opacity: [1, 0] }
+                      : {
+                          scale: [1.0, 1.08, 1.28, 0],
+                          rotate: [0, sign * 4, 0, 0],
+                          filter: [
+                            'brightness(1)',
+                            'brightness(1)',
+                            'brightness(1.5)',
+                            'brightness(1.5)',
+                          ],
+                          y: [0, 0, 0, -12],
+                          opacity: [1, 1, 1, 0],
+                        }
+                  }
                   transition={{
-                    duration: POP_DURATION,
-                    delay,
-                    times: [...POP_TIMES],
+                    duration: reduceMotion ? 0.01 : popDuration,
+                    delay: reduceMotion ? 0 : delay,
+                    times: reduceMotion ? [0, 1] : [...POP_TIMES],
                     ease: 'easeOut',
                   }}
                   onAnimationComplete={
