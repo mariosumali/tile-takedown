@@ -34,6 +34,7 @@ type State = {
   tryPlace: (row: number, col: number) => boolean;
   paintCell: (row: number, col: number) => void;
   eraseCell: (row: number, col: number) => void;
+  loadBoard: (board: BoardState) => void;
   clearAll: () => void;
   clearLinesNow: () => number;
 
@@ -123,6 +124,11 @@ export const useSandboxStore = create<State>((set, get) => ({
     next[row][col] = null;
     set({ board: next });
     persist(next, snapshots);
+  },
+
+  loadBoard: (board) => {
+    set({ board });
+    persist(board, get().snapshots);
   },
 
   clearAll: () => {

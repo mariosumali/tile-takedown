@@ -12,7 +12,9 @@ Tile Takedown is a browser-native take on the block placement puzzle genre — a
 
 **Modes shipping in v1.**
 1. **Classic** — the canonical game. Score, combos, game-over.
-2. **Sandbox** — empty grid, infinite tray, no game-over. Place freely; clears still trigger for satisfaction. "Reset board" button. A design / zen canvas.
+2. **Levels** — 100 handcrafted score puzzles with shaped boards, stars, and bonus badges.
+3. **Gimmicks** — Classic pressure plus lives, obstacles, embedded powerups, and a power meter.
+4. **Sandbox** — empty grid, free placement/paint tools, no game-over. A design / zen canvas.
 
 **Platform.** Desktop + mobile web. Responsive down to 360px. Pointer and touch supported. Keyboard shortcuts on desktop.
 
@@ -80,16 +82,16 @@ Color is assigned at tray generation, not tied to shape.
 
 ### Scoring
 ```
-placement           = cells_placed                     (1 point per cell)
-single_line_clear   = 18
-double_line_clear   = 42              (not 36 — reward the double)
-triple_line_clear   = 72
-quad_line_clear     = 112
-combo_multiplier    = 1 + 0.25 × consecutive_clear_turns   (cap 3.0)
-perfect_clear_bonus = 200             (board empty after clear)
+placement           = cells_placed × 2
+single_line_clear   = 50
+double_line_clear   = 150
+triple_line_clear   = 400
+quad_line_clear     = 1000
+combo_multiplier    = 1 + 0.3 × consecutive_clear_turns   (cap 4.0)
+perfect_clear_bonus = 500             (board empty after clear)
 ```
 
-Combo streak breaks on a turn with zero clears.
+Combo increments on clearing turns and decays by 1 on non-clearing turns.
 
 ### Game over
 After a placement resolves (clears included), check: can any piece still in the tray fit anywhere on the grid? If no → game over.
@@ -104,21 +106,21 @@ Game-over sequence:
 ## 03 · Sandbox mode
 
 Same engine, modified rules:
-- Tray regenerates per placement (always 3 available, never depletes).
+- Piece palette + paint tools replace the normal tray.
 - No score tracking, no combos, no game-over check.
-- Toolbar row under grid: `RESET BOARD` · `UNDO` (unlimited) · `REDO` · `SAVE SNAPSHOT` · `LOAD SNAPSHOT`.
-- Up to 5 snapshots stored in `localStorage`, named with timestamp.
+- Toolbar/palette actions: `PAINT` · `CLEAR LINES` · `CLEAR ALL` · `SAVE SNAPSHOT` · `LOAD SNAPSHOT`.
+- Up to 24 snapshots stored in `localStorage`, named with timestamp, with URL sharing support.
 - Clear animations still trigger — the satisfaction is the point.
-- "Piece palette" sidebar (desktop): shows all 19 pieces; click to inject directly into tray slot, overriding random.
+- "Piece palette" sidebar (desktop): shows the piece roster; click to select a shape and color directly.
 
 ---
 
 ## 04 · Features
 
 ### Combo system
-- HUD shows current multiplier `×1.00` → `×3.00`.
+- HUD shows current multiplier `×1.00` → `×4.00`.
 - Multiplier cell pulses on increment, fades red for 600ms on break.
-- Floating score popups at each cleared line's midpoint. Fat Barlow Condensed 800, the multiplier inlined (`+112 ×2.25`).
+- Floating score popups and combo VFX scale from spark to hot, fire, and inferno tiers.
 
 ### Undo
 - Classic: **3 undos per run**, non-refilling. HUD shows `● ● ●` dots; grey out as used.
@@ -148,7 +150,7 @@ Same engine, modified rules:
 - Per-run history: last 50 runs (score, duration, clears, combo peak).
 - Distribution chart: score histogram, 10-bucket.
 
-### Achievements (30 at launch)
+### Achievements (38 at launch)
 Examples:
 - `FIRST_PLACEMENT` — place your first piece.
 - `FIRST_BLOOD` — first line clear.
@@ -192,10 +194,16 @@ Theme is stored in localStorage, applied via `data-theme` attribute on `<html>`.
 ## 05 · Pages
 
 ### `/` — Landing
-Hero with live auto-playing demo grid. Mode cards (Classic, Sandbox). Stats row. Feature grid. Controls reference. Footer.
+Hero with live auto-playing demo grid. Mode cards (Classic, Levels, Gimmicks, Sandbox). Stats row. Feature grid. Controls reference. Footer.
 
 ### `/play` — Classic
 Grid center, score/combo HUD top, tray bottom, sidebar right with next-tray preview + undos + current run timer.
+
+### `/levels` and `/levels/[id]` — Levels
+Tiered catalog, daily featured level, shaped boards, target score, stars, and bonus badges.
+
+### `/gimmicks` — Gimmicks
+Classic board flow with lives, obstacles, powerups, and embedded board pickups.
 
 ### `/sandbox` — Sandbox
 Grid center, piece palette left, toolbar bottom, snapshot drawer right.
@@ -204,7 +212,7 @@ Grid center, piece palette left, toolbar bottom, snapshot drawer right.
 Lifetime numbers, calendar heatmap, score histogram, last 50 runs list with mini score sparkline.
 
 ### `/achievements` — Achievements
-Grid of 30 cards. Locked = silhouette + `???`. Unlocked = full name, description, unlock timestamp.
+Grouped achievement cards. Locked = silhouette + `???`. Unlocked = full name, description, unlock timestamp.
 
 ### `/settings` — Settings
 Theme · piece set variant · rotation on/off · next-tray preview on/off · tap-to-select accessibility · SFX volume · ambient volume · haptics on/off · export data (JSON download) · import data · reset all (double-confirm).

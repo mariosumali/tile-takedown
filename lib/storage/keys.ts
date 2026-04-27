@@ -11,4 +11,5 @@ export const K = {
   levelsProgress: `${STORAGE_PREFIX}:levelsProgress`,
   activeLevel: `${STORAGE_PREFIX}:activeLevel`,
   gimmicksRun: `${STORAGE_PREFIX}:gimmicksRun`,
+  seenHelp: `${STORAGE_PREFIX}:seenHelp`,
 } as const;

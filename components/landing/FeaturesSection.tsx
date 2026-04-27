@@ -1,3 +1,5 @@
+import { ACHIEVEMENTS } from '@/lib/achievements/definitions';
+
 type Feature = {
   icon: string;
   iconClass: string;
@@ -11,7 +13,7 @@ const features: Feature[] = [
     iconClass: 'fi-t',
     title: 'Combo chains',
     desc:
-      'Consecutive-turn clears stack a multiplier up to ×3.00. Break the streak, lose the stack. Satisfying.',
+      'Consecutive-turn clears stack a multiplier up to ×4.00, with hotter effects as the board catches fire.',
   },
   {
     icon: '↶',
@@ -37,9 +39,9 @@ const features: Feature[] = [
   {
     icon: '★',
     iconClass: 'fi-p',
-    title: '30 achievements',
+    title: `${ACHIEVEMENTS.length} achievements`,
     desc:
-      'First quad-clear, 10-combo, minimalist run, night owl. Unlock toasts drop from the top like ribbons.',
+      'Classic milestones, level mastery, Gimmicks feats, night owl runs, and tiny paper trophies.',
   },
   {
     icon: '█',
@@ -53,7 +55,7 @@ const features: Feature[] = [
     iconClass: 'fi-t',
     title: 'Daily streak',
     desc:
-      'Play daily, build a streak. 90-day calendar heatmap in Stats. Never any push notifications.',
+      'Play daily, build a streak, and watch your 90-day activity heatmap fill in. No push notifications.',
   },
   {
     icon: '♪',
@@ -68,6 +70,20 @@ const features: Feature[] = [
     title: 'Save anywhere',
     desc:
       'Export your save file whenever you want. Bring your runs, settings, and achievements along.',
+  },
+  {
+    icon: '!',
+    iconClass: 'fi-s',
+    title: 'Gimmicks mode',
+    desc:
+      'Lives, obstacles, powerups, and a pressure cooker version of the classic board.',
+  },
+  {
+    icon: '#',
+    iconClass: 'fi-c',
+    title: '100 levels',
+    desc:
+      'Hand-tuned score puzzles with shaped boards, stars, badges, and a daily featured level.',
   },
 ];
 

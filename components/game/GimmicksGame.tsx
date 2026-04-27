@@ -22,8 +22,9 @@ import {
   getClearedLinesMerged,
 } from '@/lib/engine/obstacles';
 import { comboMultiplier, comboTier } from '@/lib/engine/scoring';
-import type { PieceShape as ShapeT, PieceColor } from '@/lib/types';
+import type { GimmicksRunState, PieceShape as ShapeT, PieceColor } from '@/lib/types';
 import { playSfx, setSessionMuted, vibrate } from '@/lib/audio/sfx';
+import { hasSeenHelp, markHelpSeen } from '@/lib/helpSeen';
 import { isTouchLikeEnvironment, useTouchLike } from '@/lib/useTouchLike';
 import { useApplyWorldTheme } from '@/lib/hooks/useApplyWorldTheme';
 
@@ -82,6 +83,7 @@ export default function GimmicksGame() {
   const [wobbleKey, setWobbleKey] = useState(0);
   const [helpOpen, setHelpOpen] = useState(false);
   const [announcement, setAnnouncement] = useState('');
+  const [shareFeedback, setShareFeedback] = useState<string | null>(null);
   const boardWrapRef = useRef<HTMLDivElement>(null);
   const {
     showTrayChrome,
@@ -98,6 +100,11 @@ export default function GimmicksGame() {
       startRun();
     }
   }, [hydrated, settingsHydrated, run, startRun]);
+
+  useEffect(() => {
+    if (!hydrated || !settingsHydrated || !run) return;
+    if (!hasSeenHelp('gimmicks')) setHelpOpen(true);
+  }, [hydrated, settingsHydrated, run]);
 
   useEffect(() => {
     setSessionMuted(muted);
@@ -456,6 +463,29 @@ export default function GimmicksGame() {
       : rotationEnabled && !isTouchLike
         ? 'drag onto the board · R to rotate'
         : 'drag a piece onto the board';
+  const closeHelp = () => {
+    markHelpSeen('gimmicks');
+    setHelpOpen(false);
+  };
+
+  async function shareScorecard(currentRun: GimmicksRunState) {
+    const text = [
+      'Tile Takedown Gimmicks',
+      `Score: ${currentRun.score.toLocaleString()}`,
+      `Peak combo: ×${comboMultiplier(currentRun.comboPeak).toFixed(2)}`,
+      `Clears: ${totalClears}`,
+      `Powerups used: ${currentRun.usedPowerups.length}`,
+      `Lives left: ${currentRun.lives}`,
+      typeof window !== 'undefined' ? `${window.location.origin}/gimmicks` : '',
+    ].filter(Boolean).join('\n');
+
+    if (navigator.share) {
+      await navigator.share({ title: 'Tile Takedown Gimmicks scorecard', text });
+      return;
+    }
+    await navigator.clipboard?.writeText(text);
+    setShareFeedback('Scorecard copied.');
+  }
 
   return (
     <>
@@ -661,7 +691,17 @@ export default function GimmicksGame() {
               <Link href="/" className="btn btn-secondary">
                 Home
               </Link>
+              <button
+                type="button"
+                className="btn btn-ghost"
+                onClick={() => {
+                  void shareScorecard(run);
+                }}
+              >
+                Share score
+              </button>
             </div>
+            {shareFeedback && <p className="go-share-feedback">{shareFeedback}</p>}
           </div>
         </div>
       )}
@@ -670,7 +710,7 @@ export default function GimmicksGame() {
         <GameHelpOverlay
           mode="gimmicks"
           isTouchLike={isTouchLike}
-          onClose={() => setHelpOpen(false)}
+          onClose={closeHelp}
         />
       )}
 

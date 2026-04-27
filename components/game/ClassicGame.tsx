@@ -29,6 +29,7 @@ import {
 import { comboMultiplier } from '@/lib/engine/scoring';
 import type { PieceShape as ShapeT, PieceColor } from '@/lib/types';
 import { playSfx, vibrate, setSessionMuted } from '@/lib/audio/sfx';
+import { hasSeenHelp, markHelpSeen } from '@/lib/helpSeen';
 import { useApplyWorldTheme } from '@/lib/hooks/useApplyWorldTheme';
 import { isTouchLikeEnvironment, useTouchLike } from '@/lib/useTouchLike';
 
@@ -164,6 +165,11 @@ export default function ClassicGame() {
       startRun();
     }
   }, [hydrated, settingsHydrated, run, startRun]);
+
+  useEffect(() => {
+    if (!hydrated || !settingsHydrated || !run) return;
+    if (!hasSeenHelp('classic')) setHelpOpen(true);
+  }, [hydrated, settingsHydrated, run]);
 
   const runId = run?.id ?? null;
 
@@ -555,6 +561,10 @@ export default function ClassicGame() {
 
   const runDurationMs =
     new Date(run.lastAt).getTime() - new Date(run.startedAt).getTime();
+  const closeHelp = () => {
+    markHelpSeen('classic');
+    setHelpOpen(false);
+  };
 
   return (
     <>
@@ -727,7 +737,7 @@ export default function ClassicGame() {
         <GameHelpOverlay
           mode="classic"
           isTouchLike={isTouchLike}
-          onClose={() => setHelpOpen(false)}
+          onClose={closeHelp}
         />
       )}
 

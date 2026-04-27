@@ -4,9 +4,10 @@ import { Fragment as ReactFragment, useEffect, useState } from 'react';
 import Nav from '@/components/Nav';
 import Footer from '@/components/Footer';
 import { useGameChromeVisibility } from '@/components/game/GameChromeControls';
-import { useSettingsStore, DEFAULT_SETTINGS } from '@/stores/useSettingsStore';
+import { useSettingsStore } from '@/stores/useSettingsStore';
 import { playSfx } from '@/lib/audio/sfx';
 import { CHEATS, isKnownCheat, normalizeCheatInput } from '@/lib/cheats';
+import { downloadSaveBundle, importSaveBundle } from '@/lib/storage/saveData';
 import type { PieceSet, Theme, WorldTheme } from '@/lib/types';
 
 const THEMES: { id: Theme; label: string; desc: string }[] = [
@@ -198,6 +199,7 @@ export default function SettingsView() {
   const activateCheat = useSettingsStore((s) => s.activateCheat);
   const deactivateCheat = useSettingsStore((s) => s.deactivateCheat);
   const [worldPickerOpen, setWorldPickerOpen] = useState(false);
+  const [saveFeedback, setSaveFeedback] = useState<string | null>(null);
   const selectedWorldTheme =
     WORLD_THEMES.find((w) => w.id === worldTheme) ?? WORLD_THEMES[0];
 
@@ -411,6 +413,53 @@ export default function SettingsView() {
               })}
             </div>
           )}
+        </section>
+
+        <section className="meta-section">
+          <div className="meta-section-head">
+            <div>
+              <div className="eyebrow">save file</div>
+              <p className="meta-hint">
+                Export or import your local runs, settings, achievements, levels, and snapshots.
+              </p>
+            </div>
+            <div className="save-actions">
+              <button
+                type="button"
+                className="btn btn-secondary"
+                onClick={() => {
+                  const result = downloadSaveBundle();
+                  setSaveFeedback(
+                    result.ok ? 'Save file exported.' : result.message,
+                  );
+                }}
+              >
+                Export save
+              </button>
+              <label className="btn btn-ghost save-import">
+                Import save
+                <input
+                  type="file"
+                  accept="application/json,.json"
+                  onChange={(e) => {
+                    const file = e.currentTarget.files?.[0];
+                    e.currentTarget.value = '';
+                    if (!file) return;
+                    void file.text().then((raw) => {
+                      const result = importSaveBundle(raw);
+                      if (!result.ok) {
+                        setSaveFeedback(result.message);
+                        return;
+                      }
+                      setSaveFeedback('Save imported. Reloading…');
+                      window.setTimeout(() => window.location.reload(), 600);
+                    });
+                  }}
+                />
+              </label>
+            </div>
+          </div>
+          {saveFeedback && <div className="meta-hint save-feedback">{saveFeedback}</div>}
         </section>
 
         <section className="meta-section danger-zone">

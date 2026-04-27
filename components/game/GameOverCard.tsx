@@ -1,6 +1,7 @@
 'use client';
 
 import Link from 'next/link';
+import { useState } from 'react';
 import type { RunState } from '@/lib/types';
 import { comboMultiplier, comboTier } from '@/lib/engine/scoring';
 
@@ -34,6 +35,26 @@ export default function GameOverCard({
   const peakTier = comboTier(run.comboPeak);
   const peakTierLabel =
     peakTier === 'none' ? null : peakTier.charAt(0).toUpperCase() + peakTier.slice(1);
+  const [shareFeedback, setShareFeedback] = useState<string | null>(null);
+
+  async function shareScorecard() {
+    const text = [
+      'Tile Takedown Classic',
+      `Score: ${run.score.toLocaleString()}`,
+      `Peak combo: ×${comboMultiplier(run.comboPeak).toFixed(2)}`,
+      `Clears: ${totalClears}`,
+      `Placements: ${run.placements}`,
+      `Duration: ${fmtDuration(durationMs)}`,
+      typeof window !== 'undefined' ? window.location.origin : '',
+    ].filter(Boolean).join('\n');
+
+    if (navigator.share) {
+      await navigator.share({ title: 'Tile Takedown scorecard', text });
+      return;
+    }
+    await navigator.clipboard?.writeText(text);
+    setShareFeedback('Scorecard copied.');
+  }
 
   return (
     <div className="gameover-overlay" role="dialog" aria-label="Run complete">
@@ -80,7 +101,17 @@ export default function GameOverCard({
           <Link href="/" className="btn btn-secondary">
             Home
           </Link>
+          <button
+            type="button"
+            className="btn btn-ghost"
+            onClick={() => {
+              void shareScorecard();
+            }}
+          >
+            Share score
+          </button>
         </div>
+        {shareFeedback && <p className="go-share-feedback">{shareFeedback}</p>}
       </div>
     </div>
   );

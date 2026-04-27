@@ -25,6 +25,7 @@ export const DEFAULT_STATS: LifetimeStats = {
   totalScore: 0,
   highScore: 0,
   modeRecords: DEFAULT_MODE_RECORDS,
+  playDates: {},
   totalPlacements: 0,
   clears: { ...emptyClears },
   longestCombo: 0,
@@ -91,6 +92,20 @@ function daysBetween(a: string, b: string): number {
   return Math.round((db - da) / 86400000);
 }
 
+function dateKeyFromISO(value: string): string {
+  const d = new Date(value);
+  if (Number.isNaN(d.getTime())) return todayISO();
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+}
+
+function playDatesFromRuns(runs: ReadonlyArray<RunSummary>): Record<string, number> {
+  return runs.reduce<Record<string, number>>((acc, run) => {
+    const key = dateKeyFromISO(run.endedAt || run.startedAt);
+    acc[key] = (acc[key] ?? 0) + 1;
+    return acc;
+  }, {});
+}
+
 export const useStatsStore = create<State>((set, get) => ({
   hydrated: false,
   stats: { ...DEFAULT_STATS, clears: { ...emptyClears } },
@@ -98,15 +113,21 @@ export const useStatsStore = create<State>((set, get) => ({
   achievements: {},
   streak: { ...DEFAULT_STREAK },
   hydrate: () => {
-    const stats = normalizeStats(readJSON<LifetimeStats>(K.stats, DEFAULT_STATS));
     const runs = readJSON<RunSummary[]>(K.runs, []);
+    const stats = normalizeStats(readJSON<LifetimeStats>(K.stats, DEFAULT_STATS));
+    const playDates =
+      stats.playDates && Object.keys(stats.playDates).length > 0
+        ? stats.playDates
+        : playDatesFromRuns(runs);
     const achievements = readJSON<Record<string, AchievementState>>(K.achievements, {});
     const streak = readJSON<Streak>(K.streak, DEFAULT_STREAK);
-    set({ stats, runs, achievements, streak, hydrated: true });
+    set({ stats: { ...stats, playDates }, runs, achievements, streak, hydrated: true });
   },
   recordRun: (summary, duration) => {
     const { stats, runs } = get();
     const mode: GameMode = summary.mode ?? 'classic';
+    const runDate = dateKeyFromISO(summary.endedAt);
+    const playDates = stats.playDates ?? {};
     const modeRecords = cloneModeRecords(stats.modeRecords ?? DEFAULT_MODE_RECORDS);
     const previousMode = modeRecords[mode];
     modeRecords[mode] = {
@@ -119,6 +140,10 @@ export const useStatsStore = create<State>((set, get) => ({
       totalScore: stats.totalScore + summary.score,
       highScore: Math.max(stats.highScore, summary.score),
       modeRecords,
+      playDates: {
+        ...playDates,
+        [runDate]: (playDates[runDate] ?? 0) + 1,
+      },
       totalPlacements: stats.totalPlacements + summary.placements,
       clears: {
         single: stats.clears.single + summary.clears.single,
@@ -184,6 +209,7 @@ export const useStatsStore = create<State>((set, get) => ({
       ...DEFAULT_STATS,
       clears: { ...emptyClears },
       modeRecords: cloneModeRecords(DEFAULT_MODE_RECORDS),
+      playDates: {},
     };
     set({
       stats: reset,

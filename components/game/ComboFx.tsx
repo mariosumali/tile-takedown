@@ -8,6 +8,7 @@ import { comboTier } from '@/lib/engine/scoring';
  * Ambient + event-driven VFX layered above the board when the combo climbs
  * into high tiers. Independent of `ClearEffects` but mounted next to it.
  *
+ *  - hot tier     (combo >= 4): soft warm vignette around the viewport
  *  - fire tier    (combo >= 6): flickering flame frame along the viewport edges
  *  - inferno tier (combo >= 8): stronger fire frame + lightning flashes on each
  *    subsequent clear and a small screenshake wobble.
@@ -45,7 +46,7 @@ export default function ComboFx({ combo, clearingBoard }: Props) {
     return () => window.clearTimeout(t);
   }, [lightningId]);
 
-  if (tier !== 'fire' && tier !== 'inferno') return null;
+  if (tier !== 'hot' && tier !== 'fire' && tier !== 'inferno') return null;
 
   return (
     <div className={`combo-fx combo-fx-${tier}`} aria-hidden="true">

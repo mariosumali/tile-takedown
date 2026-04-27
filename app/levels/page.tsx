@@ -18,6 +18,33 @@ const BADGE_LABELS: Record<LevelBonusId, string> = {
   combo_fire: 'combo',
 };
 
+function localDateKey(d = new Date()): string {
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+}
+
+function dailyLevel(): LevelDef {
+  const start = new Date(2026, 0, 1);
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
+  const day = Math.floor((today.getTime() - start.getTime()) / 86400000);
+  return LEVELS[((day % LEVELS.length) + LEVELS.length) % LEVELS.length];
+}
+
+async function shareDaily(level: LevelDef, bestScore: number, stars: LevelStars) {
+  const text = [
+    `Tile Takedown daily level ${localDateKey()}`,
+    `${level.id}: ${level.name}`,
+    bestScore > 0 ? `Best: ${bestScore.toLocaleString()} (${stars}/3 stars)` : 'No local best yet.',
+    `${window.location.origin}/levels/${level.id}`,
+  ].join('\n');
+
+  if (navigator.share) {
+    await navigator.share({ title: 'Tile Takedown daily level', text });
+    return;
+  }
+  await navigator.clipboard?.writeText(text);
+}
+
 export default function LevelsIndex() {
   const hydrate = useLevelsStore((s) => s.hydrate);
   const hydrated = useLevelsStore((s) => s.hydrated);
@@ -31,6 +58,8 @@ export default function LevelsIndex() {
   const totalStars = Object.values(progress).reduce((acc, r) => acc + r.stars, 0);
   const totalLevels = LEVELS.length;
   const completed = Object.values(progress).filter((r) => r.stars > 0).length;
+  const todayLevel = dailyLevel();
+  const todayRecord = progress[todayLevel.id];
 
   return (
     <>
@@ -86,6 +115,44 @@ export default function LevelsIndex() {
                 'Onboarding'
               }
             />
+          </div>
+
+          <div className="daily-level-card">
+            <div>
+              <div className="eyebrow">daily featured · {localDateKey()}</div>
+              <h2>{todayLevel.name}</h2>
+              <p>
+                {todayLevel.id} · tier {todayLevel.tier} · target{' '}
+                {todayLevel.targetScore.toLocaleString()} · par {todayLevel.parMoves}
+              </p>
+              <div className="daily-level-stars" aria-label={`${todayRecord?.stars ?? 0} daily stars`}>
+                {'★'.repeat(todayRecord?.stars ?? 0)}
+                {'☆'.repeat(3 - (todayRecord?.stars ?? 0))}
+                <span>
+                  {todayRecord?.bestScore
+                    ? ` best ${todayRecord.bestScore.toLocaleString()}`
+                    : ' no local best yet'}
+                </span>
+              </div>
+            </div>
+            <div className="daily-level-actions">
+              <Link href={`/levels/${todayLevel.id}`} className="btn btn-primary">
+                Play daily
+              </Link>
+              <button
+                type="button"
+                className="btn btn-ghost"
+                onClick={() => {
+                  void shareDaily(
+                    todayLevel,
+                    todayRecord?.bestScore ?? 0,
+                    todayRecord?.stars ?? 0,
+                  );
+                }}
+              >
+                Share
+              </button>
+            </div>
           </div>
         </section>
 

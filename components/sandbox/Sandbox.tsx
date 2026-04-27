@@ -3,6 +3,7 @@
 import Link from 'next/link';
 import { useEffect, useState } from 'react';
 import GameBoard from '@/components/game/GameBoard';
+import GameHelpOverlay from '@/components/game/GameHelpOverlay';
 import PieceShape from '@/components/PieceShape';
 import BrandMark from '@/components/BrandMark';
 import { useSandboxStore } from '@/stores/useSandboxStore';
@@ -10,6 +11,9 @@ import { PIECE_COLORS, PIECE_DEFS } from '@/lib/engine/pieces';
 import type { PieceColor } from '@/lib/types';
 import { useSettingsStore } from '@/stores/useSettingsStore';
 import { useApplyWorldTheme } from '@/lib/hooks/useApplyWorldTheme';
+import { hasSeenHelp, markHelpSeen } from '@/lib/helpSeen';
+import { decodeSandboxBoard, encodeSandboxBoard } from '@/lib/sandboxShare';
+import { useTouchLike } from '@/lib/useTouchLike';
 
 export default function Sandbox() {
   useApplyWorldTheme();
@@ -27,6 +31,7 @@ export default function Sandbox() {
   const tryPlace = useSandboxStore((s) => s.tryPlace);
   const paintCell = useSandboxStore((s) => s.paintCell);
   const eraseCell = useSandboxStore((s) => s.eraseCell);
+  const loadBoard = useSandboxStore((s) => s.loadBoard);
   const clearAll = useSandboxStore((s) => s.clearAll);
   const clearLinesNow = useSandboxStore((s) => s.clearLinesNow);
   const saveSnapshot = useSandboxStore((s) => s.saveSnapshot);
@@ -41,6 +46,24 @@ export default function Sandbox() {
 
   const [hover, setHover] = useState<{ row: number; col: number } | null>(null);
   const [toast, setToast] = useState<string | null>(null);
+  const [helpOpen, setHelpOpen] = useState(false);
+  const isTouchLike = useTouchLike();
+
+  useEffect(() => {
+    if (!hydrated) return;
+    if (!hasSeenHelp('sandbox')) setHelpOpen(true);
+  }, [hydrated]);
+
+  useEffect(() => {
+    if (!hydrated || typeof window === 'undefined') return;
+    const params = new URLSearchParams(window.location.hash.slice(1));
+    const encoded = params.get('sandbox');
+    if (!encoded) return;
+    const sharedBoard = decodeSandboxBoard(encoded);
+    if (!sharedBoard) return;
+    loadBoard(sharedBoard);
+    setToast('shared board loaded');
+  }, [hydrated, loadBoard]);
 
   useEffect(() => {
     function onKey(e: KeyboardEvent) {
@@ -83,6 +106,24 @@ export default function Sandbox() {
     setTimeout(() => setToast(null), 1400);
   }
 
+  function closeHelp() {
+    markHelpSeen('sandbox');
+    setHelpOpen(false);
+  }
+
+  async function shareBoard() {
+    const encoded = encodeSandboxBoard(board);
+    const url = `${window.location.origin}${window.location.pathname}#sandbox=${encoded}`;
+    const text = `Tile Takedown sandbox board\n${url}`;
+
+    if (navigator.share) {
+      await navigator.share({ title: 'Tile Takedown sandbox board', text, url });
+      return;
+    }
+    await navigator.clipboard?.writeText(url);
+    flash('share link copied');
+  }
+
   // Group defs by size
   const bySize = PIECE_DEFS.reduce<Record<number, typeof PIECE_DEFS>>(
     (acc, d) => ({ ...acc, [d.size]: [...(acc[d.size] ?? []), d] as any }),
@@ -114,6 +155,9 @@ export default function Sandbox() {
           <h1>sandbox</h1>
         </div>
         <div className="sb-actions">
+          <button className="btn btn-ghost" onClick={() => setHelpOpen(true)}>
+            Help
+          </button>
           <Link href="/play" className="btn btn-secondary">
             Classic
           </Link>
@@ -222,6 +266,15 @@ export default function Sandbox() {
           >
             Save snapshot
           </button>
+          <button
+            className="btn btn-secondary"
+            onClick={() => {
+              void shareBoard();
+            }}
+            style={{ width: '100%', marginTop: 10 }}
+          >
+            Share board
+          </button>
           <div className="sb-snap-list">
             {snapshots.length === 0 && (
               <div className="sb-empty">no snapshots yet</div>
@@ -261,6 +314,14 @@ export default function Sandbox() {
       </div>
 
       {toast && <div className="sb-toast">{toast}</div>}
+
+      {helpOpen && (
+        <GameHelpOverlay
+          mode="sandbox"
+          isTouchLike={isTouchLike}
+          onClose={closeHelp}
+        />
+      )}
 
       {!hydrated && <div className="sb-loading">loading…</div>}
     </>

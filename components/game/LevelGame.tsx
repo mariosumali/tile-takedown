@@ -24,6 +24,7 @@ import {
 import { comboMultiplier } from '@/lib/engine/scoring';
 import type { LevelBonusId, PieceShape as ShapeT, PieceColor } from '@/lib/types';
 import { playSfx, setSessionMuted } from '@/lib/audio/sfx';
+import { hasSeenHelp, markHelpSeen } from '@/lib/helpSeen';
 import { useApplyWorldTheme } from '@/lib/hooks/useApplyWorldTheme';
 import { isTouchLikeEnvironment, useTouchLike } from '@/lib/useTouchLike';
 
@@ -101,6 +102,11 @@ export default function LevelGame({ levelId }: Props) {
       if (!level || level.id !== levelId) startLevel(levelId);
     }
   }, [hydrated, settingsHydrated, levelId, level, startLevel]);
+
+  useEffect(() => {
+    if (!hydrated || !settingsHydrated || !level) return;
+    if (!hasSeenHelp('levels')) setHelpOpen(true);
+  }, [hydrated, settingsHydrated, level]);
 
   useEffect(() => {
     setSessionMuted(muted);
@@ -424,6 +430,10 @@ export default function LevelGame({ levelId }: Props) {
   if (undosUsed === 0) levelBadges.push('no_undo');
   if (perfectClears > 0) levelBadges.push('perfect_clear');
   if (comboPeak >= 6) levelBadges.push('combo_fire');
+  const closeHelp = () => {
+    markHelpSeen('levels');
+    setHelpOpen(false);
+  };
 
   return (
     <>
@@ -597,7 +607,7 @@ export default function LevelGame({ levelId }: Props) {
         <GameHelpOverlay
           mode="levels"
           isTouchLike={isTouchLike}
-          onClose={() => setHelpOpen(false)}
+          onClose={closeHelp}
         />
       )}
 

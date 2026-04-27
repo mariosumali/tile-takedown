@@ -96,6 +96,8 @@ export type LifetimeStats = {
   totalScore: number;
   highScore: number;
   modeRecords?: ModeRecords;
+  /** Local date (YYYY-MM-DD) -> completed runs that day. */
+  playDates?: Record<string, number>;
   totalPlacements: number;
   clears: ClearCounts;
   longestCombo: number;
