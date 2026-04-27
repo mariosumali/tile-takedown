@@ -1,8 +1,7 @@
 #!/usr/bin/env node
-// Jungle Temple — weathered stone blocks with moss creep and carved glyphs.
-// Each tile: warm piece-color base, speckled stone, mossy corners and vines,
-// a subtle central carving. Moss always green regardless of piece color so the
-// tileset feels like a single material set dressed in different piece dyes.
+// Mossy Cobblestone - chunky stone blocks with vines and moss creeping through
+// the seams. Piece color tints the cobbles, while shared greens keep the world
+// feeling overgrown.
 
 import {
   PixelCanvas, TILE_SIZE, rng, hashStr, hexToRgb, mix, lighten, darken,
@@ -12,123 +11,95 @@ import {
 const THEME = 'jungle';
 
 const COLORS = {
-  tomato:  '#c75a3b',
-  mustard: '#e0a73a',
-  olive:   '#4e7a3a',
-  sky:     '#4d8fa5',
-  plum:    '#7d3a6c',
-  cream:   '#d9c994',
+  tomato:  '#a45e45',
+  mustard: '#b69a4a',
+  olive:   '#5d7d4c',
+  sky:     '#5f8b88',
+  plum:    '#7a5d74',
+  cream:   '#b9ae88',
 };
 
-const MOSS_DARK  = { r: 54, g: 92, b: 50, a: 255 };
-const MOSS_MID   = { r: 86, g: 132, b: 70, a: 255 };
-const MOSS_LIGHT = { r: 132, g: 178, b: 96, a: 255 };
-const STONE_INK  = { r: 28, g: 22, b: 14, a: 255 };
+const MOSS_DARK = { r: 36, g: 78, b: 38, a: 255 };
+const MOSS_MID = { r: 76, g: 128, b: 58, a: 255 };
+const MOSS_LIGHT = { r: 130, g: 170, b: 84, a: 255 };
+const INK = { r: 20, g: 31, b: 22, a: 255 };
 
-function drawMossClump(c, rand, cx, cy, radius) {
-  for (let y = -radius; y <= radius; y++) {
-    for (let x = -radius; x <= radius; x++) {
-      const d = Math.hypot(x, y);
-      if (d > radius) continue;
-      const edge = d / radius;
-      const r = rand();
-      if (r < 1 - edge * 0.9) {
-        const col = r < 0.2 ? MOSS_LIGHT : r < 0.65 ? MOSS_MID : MOSS_DARK;
-        c.setPixel(cx + x, cy + y, col);
-      }
+function block(c, x, y, w, h, fill, hi, shade) {
+  for (let yy = y; yy < y + h; yy++) {
+    for (let xx = x; xx < x + w; xx++) {
+      const t = ((xx - x) + (yy - y)) / (w + h);
+      c.setPixel(xx, yy, mix(lighten(fill, 0.08), darken(fill, 0.16), t));
     }
+  }
+  for (let xx = x; xx < x + w; xx++) {
+    c.setPixel(xx, y, hi);
+    c.setPixel(xx, y + h - 1, shade);
+  }
+  for (let yy = y; yy < y + h; yy++) {
+    c.setPixel(x, yy, hi);
+    c.setPixel(x + w - 1, yy, shade);
   }
 }
 
-function drawVine(c, rand, x0, y0, x1, y1) {
-  const steps = Math.max(Math.abs(x1 - x0), Math.abs(y1 - y0));
-  for (let i = 0; i <= steps; i++) {
-    const t = i / steps;
-    const x = Math.round(x0 + (x1 - x0) * t + Math.sin(t * 5) * 2);
-    const y = Math.round(y0 + (y1 - y0) * t + Math.cos(t * 4) * 1.5);
+function drawVine(c, rand, x0, y0, len, dir) {
+  let x = x0;
+  let y = y0;
+  for (let i = 0; i < len; i++) {
     c.setPixel(x, y, MOSS_DARK);
-    if (rand() < 0.35) c.setPixel(x, y - 1, MOSS_MID);
-    if (rand() < 0.2) {
-      c.setPixel(x - 1, y, MOSS_MID);
-      c.setPixel(x + 1, y, MOSS_MID);
+    if (i % 3 === 0) c.setPixel(x, y - 1, MOSS_MID);
+    if (i % 6 === 0) {
+      const side = rand() < 0.5 ? -1 : 1;
+      c.setPixel(x + side, y, MOSS_LIGHT);
+      c.setPixel(x + side * 2, y + (rand() < 0.5 ? -1 : 1), MOSS_MID);
     }
+    x += dir;
+    y += rand() < 0.38 ? 1 : 0;
+    if (rand() < 0.18) x -= dir;
   }
-}
-
-function drawGlyph(c, cx, cy, ink) {
-  // Stylized stacked-stones / spiral mark, carved.
-  c.line(cx - 6, cy - 6, cx + 6, cy - 6, ink);
-  c.line(cx - 8, cy, cx + 8, cy, ink);
-  c.line(cx - 6, cy + 6, cx + 6, cy + 6, ink);
-  c.setPixel(cx - 2, cy - 3, ink);
-  c.setPixel(cx + 2, cy - 3, ink);
-  c.setPixel(cx, cy - 3, ink);
-  c.setPixel(cx - 2, cy + 3, ink);
-  c.setPixel(cx + 2, cy + 3, ink);
-  c.setPixel(cx, cy + 3, ink);
 }
 
 function generate(colorName, hex) {
   const c = new PixelCanvas(TILE_SIZE, TILE_SIZE);
-  const rand = rng(hashStr(`${THEME}:${colorName}`) ^ 0xa11a);
-  const base = hexToRgb(hex);
+  const rand = rng(hashStr(`${THEME}:${colorName}`) ^ 0xc0bb);
+  const piece = hexToRgb(hex);
+  const stone = mix(piece, { r: 118, g: 118, b: 95 }, 0.54);
+  const grout = darken(mix(stone, MOSS_DARK, 0.16), 0.45);
+  c.clear(grout);
 
-  // Solid base, warmed toward an earthy stone.
-  const ground = mix(base, { r: 120, g: 96, b: 60 }, 0.25);
-  c.clear({ ...ground, a: 255 });
-
-  // Horizontal strata bands for a layered-stone feel.
-  for (let y = 0; y < TILE_SIZE; y++) {
-    const bandIx = Math.floor(y / 8);
-    const strength = ((bandIx % 2) === 0 ? -1 : 1) * 0.05;
-    for (let x = 0; x < TILE_SIZE; x++) {
-      const p = c.getPixel(x, y);
-      c.setPixel(x, y, {
-        r: Math.max(0, Math.min(255, Math.round(p.r * (1 + strength)))),
-        g: Math.max(0, Math.min(255, Math.round(p.g * (1 + strength)))),
-        b: Math.max(0, Math.min(255, Math.round(p.b * (1 + strength)))),
-        a: 255,
-      }, 1);
+  const rows = [
+    [[1, 1, 18, 14], [20, 1, 21, 14], [42, 1, 21, 14]],
+    [[1, 16, 11, 15], [13, 16, 20, 15], [34, 16, 29, 15]],
+    [[1, 32, 23, 14], [25, 32, 17, 14], [43, 32, 20, 14]],
+    [[1, 47, 16, 16], [18, 47, 24, 16], [43, 47, 20, 16]],
+  ];
+  for (const row of rows) {
+    for (const [x, y, w, h] of row) {
+      const jitter = mix(stone, { r: 70 + rand() * 35, g: 80 + rand() * 25, b: 70 + rand() * 20, a: 255 }, 0.24);
+      block(c, x, y, w, h, jitter, lighten(jitter, 0.28), darken(jitter, 0.38));
     }
   }
 
-  speckle(c, rand, 22, 0.55);
+  speckle(c, rand, 20, 0.46);
 
-  // Random pits (tiny darker holes).
-  for (let i = 0; i < 26; i++) {
-    const x = Math.floor(rand() * TILE_SIZE);
-    const y = Math.floor(rand() * TILE_SIZE);
-    c.setPixel(x, y, darken(ground, 0.45));
-    if (rand() < 0.4) c.setPixel(x + 1, y, darken(ground, 0.25));
+  for (let i = 0; i < 70; i++) {
+    const seamX = [0, 12, 19, 24, 33, 42, 63][Math.floor(rand() * 7)];
+    const seamY = [0, 15, 31, 46, 63][Math.floor(rand() * 5)];
+    const x = Math.max(1, Math.min(62, seamX + Math.floor((rand() - 0.5) * 5)));
+    const y = Math.max(1, Math.min(62, seamY + Math.floor((rand() - 0.5) * 5)));
+    c.setPixel(x, y, rand() < 0.35 ? MOSS_LIGHT : rand() < 0.72 ? MOSS_MID : MOSS_DARK);
   }
 
-  // Carved glyph (slightly darker, not full-ink).
-  drawGlyph(c, 32, 32, darken(ground, 0.55));
+  drawVine(c, rand, 3, 9, 34, 1);
+  drawVine(c, rand, 58, 6, 40, -1);
+  drawVine(c, rand, 8, 37, 28, 1);
 
-  // Moss clumps in corners + a couple of trailing vines.
-  drawMossClump(c, rand, 4, 4, 7);
-  drawMossClump(c, rand, TILE_SIZE - 5, TILE_SIZE - 5, 8);
-  drawMossClump(c, rand, TILE_SIZE - 6, 3, 5);
-  drawVine(c, rand, 4, 4, 20, 22);
-  drawVine(c, rand, TILE_SIZE - 5, TILE_SIZE - 5, TILE_SIZE - 22, TILE_SIZE - 20);
-
-  bevel(c, lighten(ground, 0.3), STONE_INK, 1);
-
-  // A few bright moss highlights for dimensional pop.
-  for (let i = 0; i < 10; i++) {
-    const x = Math.floor(rand() * TILE_SIZE);
-    const y = Math.floor(rand() * TILE_SIZE);
-    const p = c.getPixel(x, y);
-    if (p.r < 140 && p.g > 90 && p.b < 120) c.setPixel(x, y, MOSS_LIGHT);
-  }
-
+  bevel(c, lighten(stone, 0.22), INK, 1);
   return c;
 }
 
 function main() {
   for (const [name, hex] of Object.entries(COLORS)) {
-    const canvas = generate(name, hex);
-    const file = saveTile(THEME, name, canvas);
+    const file = saveTile(THEME, name, generate(name, hex));
     console.log(` wrote ${file}`);
   }
 }
