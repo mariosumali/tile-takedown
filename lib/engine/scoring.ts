@@ -7,11 +7,10 @@ export const PERFECT_CLEAR_BONUS = 500;
 export const COMBO_STEP = 0.3;
 export const COMBO_CAP = 4.0;
 /**
- * Legacy: kept for API compatibility with callers that still read
- * `comboGrace` from `scoreTurn`. Combo now decays by 1 per non-clear turn
- * instead of using a hard grace budget, so this value is effectively unused.
+ * One non-clear placement can preserve an active combo after a clear. This
+ * keeps combo chasing tense without making every setup move feel like a whiff.
  */
-export const COMBO_GRACE_TURNS = 0;
+export const COMBO_GRACE_TURNS = 1;
 
 /** Combo tier names, used by HUD and VFX overlays to drive visual intensity. */
 export type ComboTier = 'none' | 'spark' | 'hot' | 'fire' | 'inferno';
@@ -63,21 +62,25 @@ export function scoreTurn(args: {
   cellsPlaced: number;
   linesCleared: number;
   prevCombo: number;
-  /** @deprecated Kept for API compatibility; combo now decays by 1 per
-   *  non-clear turn instead of spending a grace budget. */
   prevComboGrace?: number;
   perfectClear: boolean;
 }): { turn: TurnScore; combo: number; comboGrace: number } {
   const placement = placementPoints(args.cellsPlaced);
   const cleared = args.linesCleared > 0;
+  const prevGrace = Math.max(0, args.prevComboGrace ?? 0);
 
   let combo: number;
+  let comboGrace: number;
   if (cleared) {
     combo = args.prevCombo + 1;
+    comboGrace = COMBO_GRACE_TURNS;
+  } else if (args.prevCombo > 0 && prevGrace > 0) {
+    combo = args.prevCombo;
+    comboGrace = prevGrace - 1;
   } else {
     combo = Math.max(0, args.prevCombo - 1);
+    comboGrace = 0;
   }
-  const comboGrace = 0;
 
   const multiplier = cleared ? comboMultiplier(combo) : 1;
   const base = lineClearBase(args.linesCleared);

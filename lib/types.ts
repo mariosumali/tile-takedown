@@ -69,6 +69,7 @@ export type RunState = {
   nextTray: TrayPiece[];
   score: number;
   combo: number;
+  comboGrace: number;
   comboPeak: number;
   placements: number;
   clears: ClearCounts;

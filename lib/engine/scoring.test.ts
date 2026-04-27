@@ -7,6 +7,7 @@ import {
   scoreTurn,
   COMBO_CAP,
   COMBO_TIERS,
+  COMBO_GRACE_TURNS,
   PERFECT_CLEAR_BONUS,
   PLACEMENT_POINT_PER_CELL,
   SINGLE_CLEAR,
@@ -37,32 +38,37 @@ describe('scoring', () => {
     expect(comboMultiplier(100)).toBe(COMBO_CAP);
   });
 
-  it('no-clear turn decays combo by 1 instead of resetting', () => {
-    const { turn, combo } = scoreTurn({
+  it('no-clear turn spends grace before decaying combo', () => {
+    const { turn, combo, comboGrace } = scoreTurn({
       cellsPlaced: 3,
       linesCleared: 0,
       prevCombo: 3,
+      prevComboGrace: 1,
       perfectClear: false,
     });
-    expect(combo).toBe(2);
+    expect(combo).toBe(3);
+    expect(comboGrace).toBe(0);
     expect(turn.total).toBe(placementPoints(3));
     expect(turn.multiplier).toBe(1);
   });
 
-  it('combo decays to zero over consecutive non-clear turns', () => {
+  it('combo decays to zero over consecutive non-clear turns after grace', () => {
     let prev = 3;
+    let prevGrace = 1;
     const decayed: number[] = [];
     for (let i = 0; i < 5; i++) {
-      const { combo } = scoreTurn({
+      const { combo, comboGrace } = scoreTurn({
         cellsPlaced: 2,
         linesCleared: 0,
         prevCombo: prev,
+        prevComboGrace: prevGrace,
         perfectClear: false,
       });
       decayed.push(combo);
       prev = combo;
+      prevGrace = comboGrace;
     }
-    expect(decayed).toEqual([2, 1, 0, 0, 0]);
+    expect(decayed).toEqual([3, 2, 1, 0, 0]);
   });
 
   it('decay cannot drive combo below zero', () => {
@@ -80,6 +86,7 @@ describe('scoring', () => {
       cellsPlaced: 2,
       linesCleared: 0,
       prevCombo: 3,
+      prevComboGrace: 0,
       perfectClear: false,
     });
     const hit = scoreTurn({
@@ -94,7 +101,7 @@ describe('scoring', () => {
   });
 
   it('single clear + first combo step applies the first-step multiplier', () => {
-    const { turn, combo } = scoreTurn({
+    const { turn, combo, comboGrace } = scoreTurn({
       cellsPlaced: 4,
       linesCleared: 1,
       prevCombo: 0,
@@ -102,8 +109,20 @@ describe('scoring', () => {
     });
     const mult = comboMultiplier(1);
     expect(combo).toBe(1);
+    expect(comboGrace).toBe(COMBO_GRACE_TURNS);
     expect(turn.multiplier).toBe(mult);
     expect(turn.total).toBe(placementPoints(4) + Math.round(SINGLE_CLEAR * mult));
+  });
+
+  it('preserves old callers that omit combo grace', () => {
+    const { combo, comboGrace } = scoreTurn({
+      cellsPlaced: 2,
+      linesCleared: 0,
+      prevCombo: 2,
+      perfectClear: false,
+    });
+    expect(combo).toBe(1);
+    expect(comboGrace).toBe(0);
   });
 
   it('perfect clear adds the bonus at the current multiplier', () => {

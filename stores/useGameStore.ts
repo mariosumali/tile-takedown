@@ -38,10 +38,19 @@ import { effectiveRotationEnabled } from '@/lib/useTouchLike';
 import { useSettingsStore } from './useSettingsStore';
 
 type ScorePopup = { id: number; amount: number; mult: string };
+type ComboGraceEvent = { id: number; kind: 'saved' | 'held' };
+type ClutchState = {
+  id: number;
+  undoRemaining: number;
+  canUndo: boolean;
+  at: number;
+};
+type PersistedRunState = Omit<RunState, 'comboGrace'> &
+  Partial<Pick<RunState, 'comboGrace'>>;
 
 type Snap = Pick<
   RunState,
-  'board' | 'tray' | 'nextTray' | 'score' | 'combo' | 'comboPeak' | 'placements' | 'clears' | 'bag' | 'undosUsed' | 'perfectClears'
+  'board' | 'tray' | 'nextTray' | 'score' | 'combo' | 'comboGrace' | 'comboPeak' | 'placements' | 'clears' | 'bag' | 'undosUsed' | 'perfectClears'
 > & { placedSizes: number[] };
 
 type State = {
@@ -55,6 +64,8 @@ type State = {
   scorePopup: ScorePopup | null;
   lastClear: { rows: number[]; cols: number[]; at: number } | null;
   toast: { id: string; name: string; desc: string; icon?: string } | null;
+  comboGraceEvent: ComboGraceEvent | null;
+  clutch: ClutchState | null;
   /** monotonic turn index, incremented after each placement resolves */
   turn: number;
   /** Rows currently running their clear-pop animation. */
@@ -84,6 +95,7 @@ type State = {
 
   dismissToast: () => void;
   dismissScorePopup: () => void;
+  dismissComboGraceEvent: () => void;
 };
 
 const UNDO_LIMIT = 3;
@@ -112,6 +124,13 @@ function persistRun(run: RunState | null): void {
   writeJSON(K.activeRun, run);
 }
 
+function normalizeRun(run: PersistedRunState): RunState {
+  return {
+    ...run,
+    comboGrace: run.comboGrace ?? 0,
+  };
+}
+
 export const useGameStore = create<State>((set, get) => {
   function fireAchievements(ids: string[]): void {
     if (!ids.length) return;
@@ -135,6 +154,7 @@ export const useGameStore = create<State>((set, get) => {
       nextTray: run.nextTray,
       score: run.score,
       combo: run.combo,
+      comboGrace: run.comboGrace,
       comboPeak: run.comboPeak,
       placements: run.placements,
       clears: { ...run.clears },
@@ -170,6 +190,7 @@ export const useGameStore = create<State>((set, get) => {
       nextTray: second.tray.map(withId),
       score: 0,
       combo: 0,
+      comboGrace: 0,
       comboPeak: 0,
       placements: 0,
       clears: { single: 0, double: 0, triple: 0, quad: 0 },
@@ -193,15 +214,17 @@ export const useGameStore = create<State>((set, get) => {
     scorePopup: null,
     lastClear: null,
     toast: null,
+    comboGraceEvent: null,
+    clutch: null,
     turn: 0,
     clearingRows: [],
     clearingCols: [],
     clearingBoard: null,
 
     hydrate: () => {
-      const existing = readJSON<RunState | null>(K.activeRun, null);
+      const existing = readJSON<PersistedRunState | null>(K.activeRun, null);
       if (existing && !existing.gameOver) {
-        set({ run: existing, hydrated: true });
+        set({ run: normalizeRun(existing), hydrated: true });
       } else {
         set({ hydrated: true });
       }
@@ -220,6 +243,8 @@ export const useGameStore = create<State>((set, get) => {
         undoStack: [],
         scorePopup: null,
         lastClear: null,
+        comboGraceEvent: null,
+        clutch: null,
         turn: 0,
         clearingRows: [],
         clearingCols: [],
@@ -230,9 +255,9 @@ export const useGameStore = create<State>((set, get) => {
 
     endRun: () => {
       const run = get().run;
-      if (!run) return;
+      if (!run || run.gameOver) return;
       const ended = { ...run, gameOver: true, lastAt: new Date().toISOString() };
-      set({ run: ended });
+      set({ run: ended, clutch: null, comboGraceEvent: null });
       // Aggregate stats
       const stats = useStatsStore.getState();
       const summary: RunSummary = {
@@ -306,10 +331,11 @@ export const useGameStore = create<State>((set, get) => {
       const perfect = cleared.totalLines > 0 && boardIsEmpty(afterClear);
 
       const cellsCount = pieceSize(piece.shape);
-      const { turn: turnScore, combo } = scoreTurn({
+      const { turn: turnScore, combo, comboGrace } = scoreTurn({
         cellsPlaced: cellsCount,
         linesCleared: cleared.totalLines,
         prevCombo: run.combo,
+        prevComboGrace: run.comboGrace,
         perfectClear: perfect,
       });
 
@@ -404,6 +430,7 @@ export const useGameStore = create<State>((set, get) => {
         nextTray,
         score,
         combo,
+        comboGrace,
         comboPeak,
         placements: run.placements + 1,
         clears,
@@ -429,6 +456,12 @@ export const useGameStore = create<State>((set, get) => {
       const lastClear = cleared.totalLines
         ? { rows: cleared.rows, cols: cleared.cols, at: Date.now() }
         : null;
+      const comboGraceEvent: ComboGraceEvent | null =
+        cleared.totalLines > 0 && comboGrace > 0
+          ? { id: Date.now(), kind: 'saved' }
+          : cleared.totalLines === 0 && run.combo > 0 && run.comboGrace > 0 && combo === run.combo
+            ? { id: Date.now(), kind: 'held' }
+            : null;
 
       const clearingRows = cleared.totalLines > 0 ? cleared.rows.slice() : [];
       const clearingCols = cleared.totalLines > 0 ? cleared.cols.slice() : [];
@@ -444,6 +477,8 @@ export const useGameStore = create<State>((set, get) => {
         undoStack,
         scorePopup: cleared.totalLines > 0 ? popup : null,
         lastClear,
+        comboGraceEvent,
+        clutch: null,
         turn: state.turn + 1,
         clearingRows,
         clearingCols,
@@ -505,7 +540,30 @@ export const useGameStore = create<State>((set, get) => {
         hasRemaining &&
         !canAnyPieceFit(nextRun.board, nextRun.tray, undefined, rotationAllowed)
       ) {
-        setTimeout(() => get().endRun(), 600);
+        const undoRemaining = Math.max(0, UNDO_LIMIT - nextRun.undosUsed);
+        const clutch: ClutchState = {
+          id: Date.now(),
+          undoRemaining,
+          canUndo: undoRemaining > 0 && undoStack.length > 0,
+          at: Date.now(),
+        };
+        set({ clutch });
+        setTimeout(() => {
+          const current = get();
+          const currentRun = current.run;
+          if (!currentRun || currentRun.id !== nextRun.id || currentRun.gameOver) return;
+          if (current.clutch?.id !== clutch.id) return;
+          const stillHasRemaining = currentRun.tray.some((t) => t !== null);
+          const stillLocked =
+            stillHasRemaining &&
+            !canAnyPieceFit(
+              currentRun.board,
+              currentRun.tray,
+              undefined,
+              rotationAllowed,
+            );
+          if (stillLocked) get().endRun();
+        }, clutch.canUndo ? 4200 : 1200);
       }
 
       // Clear score popup after a tick
@@ -513,6 +571,13 @@ export const useGameStore = create<State>((set, get) => {
         setTimeout(() => {
           if (get().scorePopup?.id === popup.id) set({ scorePopup: null });
         }, 2200);
+      }
+      if (comboGraceEvent) {
+        setTimeout(() => {
+          if (get().comboGraceEvent?.id === comboGraceEvent.id) {
+            set({ comboGraceEvent: null });
+          }
+        }, 1800);
       }
 
       return true;
@@ -531,6 +596,7 @@ export const useGameStore = create<State>((set, get) => {
         nextTray: snap.nextTray,
         score: snap.score,
         combo: snap.combo,
+        comboGrace: snap.comboGrace,
         comboPeak: snap.comboPeak,
         placements: snap.placements,
         clears: { ...snap.clears },
@@ -547,6 +613,8 @@ export const useGameStore = create<State>((set, get) => {
         undoStack: undoStack.slice(0, -1),
         scorePopup: null,
         lastClear: null,
+        comboGraceEvent: null,
+        clutch: null,
         clearingRows: [],
         clearingCols: [],
         clearingBoard: null,
@@ -560,6 +628,7 @@ export const useGameStore = create<State>((set, get) => {
 
     dismissToast: () => set({ toast: null }),
     dismissScorePopup: () => set({ scorePopup: null }),
+    dismissComboGraceEvent: () => set({ comboGraceEvent: null }),
   };
 });
 
