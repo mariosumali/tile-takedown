@@ -1,8 +1,6 @@
 #!/usr/bin/env node
-// Retro Arcade — classic chunky 8-bit block. Flat piece-color face with a
-// two-step bevel: 3px highlight top-left, 3px shadow bottom-right, plus a hard
-// black outer border. Interior carries a small "pip" dither cluster so the
-// face doesn't look like a solid rectangle.
+// 8-Bit Blocks - deliberately low-detail retro blocks with chunky two-tone
+// pixels, hard outlines, and simple low-res interior marks.
 
 import {
   PixelCanvas, TILE_SIZE, rng, hashStr, hexToRgb, lighten, darken,
@@ -12,36 +10,18 @@ import {
 const THEME = 'arcade';
 
 const COLORS = {
-  tomato:  '#ff3a6e',
-  mustard: '#ffd728',
-  olive:   '#5effa0',
-  sky:     '#3ab4ff',
-  plum:    '#c83ae0',
-  cream:   '#f8f8f8',
+  tomato:  '#ff3f73',
+  mustard: '#ffd831',
+  olive:   '#60ffa6',
+  sky:     '#3eb9ff',
+  plum:    '#ca43e8',
+  cream:   '#fafafa',
 };
 
 const BLACK = { r: 0, g: 0, b: 0, a: 255 };
-
-function generate(colorName, hex) {
-  const c = new PixelCanvas(TILE_SIZE, TILE_SIZE);
-  const rand = rng(hashStr(`${THEME}:${colorName}`) ^ 0xa2cd);
-  const face = hexToRgb(hex);
-  const hi1 = lighten(face, 0.35);
-  const hi2 = lighten(face, 0.7);
-  const sh1 = darken(face, 0.28);
-  const sh2 = darken(face, 0.55);
-
-  // Fill with face color.
-  for (let y = 0; y < TILE_SIZE; y++) {
-    for (let x = 0; x < TILE_SIZE; x++) c.setPixel(x, y, face);
-  }
-
-  const border = 2; // outer black.
-  const bevel1 = 3; // primary highlight/shadow band.
-  const bevel2 = 2; // secondary band.
-
-  // Outer black border.
-  for (let i = 0; i < border; i++) {
+function hardFrame(c, face, hi, shade) {
+  c.clear(face);
+  for (let i = 0; i < 3; i++) {
     for (let x = i; x < TILE_SIZE - i; x++) {
       c.setPixel(x, i, BLACK);
       c.setPixel(x, TILE_SIZE - 1 - i, BLACK);
@@ -51,69 +31,47 @@ function generate(colorName, hex) {
       c.setPixel(TILE_SIZE - 1 - i, y, BLACK);
     }
   }
-
-  // Primary highlight (top + left).
-  for (let j = 0; j < bevel1; j++) {
-    const y = border + j;
-    for (let x = border + j; x < TILE_SIZE - border - j; x++) c.setPixel(x, y, hi1);
-    const x = border + j;
-    for (let yy = border + j; yy < TILE_SIZE - border - j; yy++) c.setPixel(x, yy, hi1);
+  for (let i = 3; i < 8; i++) {
+    for (let x = i; x < TILE_SIZE - i; x++) c.setPixel(x, i, hi);
+    for (let y = i; y < TILE_SIZE - i; y++) c.setPixel(i, y, hi);
   }
-
-  // Primary shadow (bottom + right).
-  for (let j = 0; j < bevel1; j++) {
-    const y = TILE_SIZE - 1 - border - j;
-    for (let x = border + j; x < TILE_SIZE - border - j; x++) c.setPixel(x, y, sh1);
-    const x = TILE_SIZE - 1 - border - j;
-    for (let yy = border + j; yy < TILE_SIZE - border - j; yy++) c.setPixel(x, yy, sh1);
+  for (let i = 3; i < 8; i++) {
+    for (let x = i; x < TILE_SIZE - i; x++) c.setPixel(x, TILE_SIZE - 1 - i, shade);
+    for (let y = i; y < TILE_SIZE - i; y++) c.setPixel(TILE_SIZE - 1 - i, y, shade);
   }
+}
 
-  // Brighter corner highlight pixels (top-left two rows, 1px only).
-  for (let j = 0; j < bevel2; j++) {
-    const y = border + j;
-    for (let x = border + j; x < border + 12 - j; x++) c.setPixel(x, y, hi2);
-    const x = border + j;
-    for (let yy = border + j; yy < border + 12 - j; yy++) c.setPixel(x, yy, hi2);
-  }
+function lowResRect(c, x, y, w, h, col) {
+  c.rect(x, y, w, h, col);
+}
 
-  // Deeper shadow "burned" bottom-right corner (1px).
-  for (let i = 0; i < 4; i++) {
-    c.setPixel(TILE_SIZE - 3 - i, TILE_SIZE - 3, sh2);
-    c.setPixel(TILE_SIZE - 3, TILE_SIZE - 3 - i, sh2);
-  }
+function generate(colorName, hex) {
+  const c = new PixelCanvas(TILE_SIZE, TILE_SIZE);
+  const rand = rng(hashStr(`${THEME}:${colorName}`) ^ 0x8b17);
+  const face = hexToRgb(hex);
+  const hi = lighten(face, 0.36);
+  const shade = darken(face, 0.45);
 
-  // Face dither pattern (classic NES-style 50% checker on a 2-pixel grid) for
-  // interior texture, applied lightly.
-  for (let y = 10; y < TILE_SIZE - 10; y++) {
-    for (let x = 10; x < TILE_SIZE - 10; x++) {
-      const checker = ((x >> 1) + (y >> 1)) & 1;
-      if (checker === 0) {
-        const p = c.getPixel(x, y);
-        if (p.r === face.r && p.g === face.g && p.b === face.b) {
-          c.setPixel(x, y, { r: hi1.r, g: hi1.g, b: hi1.b, a: 40 });
-        }
-      }
+  hardFrame(c, face, hi, shade);
+
+  // Intentionally coarse 8x8 pixel clusters.
+  for (let y = 10; y < TILE_SIZE - 10; y += 8) {
+    for (let x = 10; x < TILE_SIZE - 10; x += 8) {
+      if (rand() < 0.45) lowResRect(c, x, y, 8, 8, rand() < 0.5 ? hi : shade);
     }
   }
 
-  // A single "pip" glyph in the face (a tiny 8-bit heart / dot pattern),
-  // picked by RNG so each color variant has a subtle different mark.
-  const px = 32, py = 32;
-  const pattern = [
-    [0,1,1,0,0,1,1,0],
-    [1,0,0,1,1,0,0,1],
-    [1,0,0,0,0,0,0,1],
-    [0,1,0,0,0,0,1,0],
-    [0,0,1,0,0,1,0,0],
-    [0,0,0,1,1,0,0,0],
+  // Tiny low-res badge in the center: one of a few simple blocky silhouettes.
+  const patterns = [
+    [[0,1,1,0], [1,1,1,1], [1,0,0,1], [0,1,1,0]],
+    [[1,1,1,1], [1,0,0,0], [1,1,1,0], [1,0,0,0]],
+    [[1,0,0,1], [0,1,1,0], [0,1,1,0], [1,0,0,1]],
   ];
-  // Random horizontal offset gives variants their own sub-personality.
-  const dx = Math.floor((rand() - 0.5) * 4);
-  for (let y = 0; y < pattern.length; y++) {
-    for (let x = 0; x < pattern[y].length; x++) {
-      if (pattern[y][x]) {
-        c.setPixel(px + x - 4 + dx, py + y - 3, hi2);
-      }
+  const pattern = patterns[Math.floor(rand() * patterns.length)];
+  for (let py = 0; py < pattern.length; py++) {
+    for (let px = 0; px < pattern[py].length; px++) {
+      if (pattern[py][px]) c.rect(24 + px * 4, 24 + py * 4, 4, 4, BLACK);
+      else c.rect(24 + px * 4, 24 + py * 4, 4, 4, lighten(face, 0.14));
     }
   }
 
