@@ -659,13 +659,15 @@ export default function ClassicGame() {
         <div className="right-stack">
           {narrowViewport ? (
             <>
-              <NextTrayUndoComboCard
-                nextShapes={run.nextTray.map((p) => p.shape)}
-                showNext={showNextTray}
-                undosUsed={run.undosUsed}
-                undoTotal={3}
-              />
-              <MiniStats rows={miniStatsRows} />
+              {showTrayChrome && (
+                <NextTrayUndoComboCard
+                  nextShapes={run.nextTray.map((p) => p.shape)}
+                  showNext={showNextTray}
+                  undosUsed={run.undosUsed}
+                  undoTotal={3}
+                />
+              )}
+              {showRunStats && <MiniStats rows={miniStatsRows} />}
             </>
           ) : (
             <>

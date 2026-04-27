@@ -17,6 +17,8 @@ export const DEFAULT_SETTINGS: Settings = {
   nextTrayPreview: true,
   tapToSelect: false,
   instantTrayRefill: false,
+  showTrayChrome: undefined,
+  showRunStats: undefined,
   sfxVolume: 0.6,
   ambientVolume: 0,
   haptics: true,

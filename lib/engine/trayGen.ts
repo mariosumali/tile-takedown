@@ -18,12 +18,14 @@ import {
   buildBagFromPool,
 } from './bag';
 import {
+  boardIsEmpty,
   canPlace,
   clearLines,
   getClearedLines,
   placePiece,
 } from './grid';
 import {
+  getDef,
   PIECE_COLORS,
   PIECE_DEFS,
   uniqueRotations,
@@ -47,6 +49,7 @@ const RESCUE_IDS = [
 
 const DEFAULT_ATTEMPTS = 30;
 const DEFAULT_NODE_BUDGET = 20_000;
+const CLASSIC_STARTER_IDS = ['o3', 'rect2x3', 'rect3x2'] as const;
 
 export type SolverOptions = {
   mask?: BoardMask;
@@ -216,6 +219,19 @@ export type BatchSource =
 
 function pickColor(rng: Rng): Piece['color'] {
   return PIECE_COLORS[Math.floor(rng() * PIECE_COLORS.length)];
+}
+
+function classicStarterTray(rng: Rng): Piece[] {
+  const ids = CLASSIC_STARTER_IDS.slice();
+  for (let i = ids.length - 1; i > 0; i--) {
+    const j = Math.floor(rng() * (i + 1));
+    [ids[i], ids[j]] = [ids[j], ids[i]];
+  }
+
+  return ids
+    .map((id) => getDef(id))
+    .filter((def): def is PieceDef => def !== undefined)
+    .map((def) => ({ shape: def.shape, color: pickColor(rng) }));
 }
 
 function refillBag(
@@ -467,6 +483,28 @@ export function generateSolvableBatch(args: {
 
   const pressure = boardPressure(board, mask);
   const dens = density ?? pressure;
+
+  if (
+    source.kind === 'classic' &&
+    source.pieceSet === 'classic' &&
+    args.bag.length === 0 &&
+    pressure === 0 &&
+    boardIsEmpty(board, mask)
+  ) {
+    const tray = classicStarterTray(rng);
+    if (
+      tray.length === 3 &&
+      tripletIsSolvable(board, tray, { mask, rotationAllowed })
+    ) {
+      return {
+        tray,
+        bag: refillBag([], source, dens, rng),
+        assisted: false,
+        attempts: 1,
+      };
+    }
+  }
+
   const assist = shouldAssist(pressure, rng);
 
   let workingBag: Piece[] = args.bag.slice();

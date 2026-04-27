@@ -16,6 +16,10 @@ function pieceFromId(id: string, color: Piece['color'] = 'tomato'): Piece {
   return { shape: def.shape, color };
 }
 
+function shapeKey(shape: Piece['shape']): string {
+  return shape.map((r) => r.join('')).join('|');
+}
+
 function filledBoard(rows: number, cols: number): BoardState {
   return Array.from({ length: rows }, () =>
     Array.from({ length: cols }, () => 'tomato' as const),
@@ -98,6 +102,23 @@ describe('generateSolvableBatch', () => {
     });
     expect(out.tray).toHaveLength(3);
     expect(tripletIsSolvable(board, out.tray)).toBe(true);
+  });
+
+  it('starts classic runs with the 3x3 and rectangle starter trio', () => {
+    const board = createEmptyBoard(8, 8);
+    const out = generateSolvableBatch({
+      board,
+      bag: [],
+      source: { kind: 'classic', pieceSet: 'classic' },
+      rng: mulberryRng(20260427),
+    });
+    const starterKeys = ['o3', 'rect2x3', 'rect3x2']
+      .map((id) => shapeKey(pieceFromId(id).shape))
+      .sort();
+
+    expect(out.tray.map((piece) => shapeKey(piece.shape)).sort()).toEqual(
+      starterKeys,
+    );
   });
 
   it('honours a custom pool', () => {
