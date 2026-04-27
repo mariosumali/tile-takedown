@@ -32,9 +32,15 @@ export default function GameOverCard({
   const delta = run.score - highScore;
   const isBest = run.score > highScore && run.score > 0;
   const deltaText = delta.toLocaleString();
+  const undoRemaining = Math.max(0, 3 - run.undosUsed);
   const peakTier = comboTier(run.comboPeak);
   const peakTierLabel =
     peakTier === 'none' ? null : peakTier.charAt(0).toUpperCase() + peakTier.slice(1);
+  const recapLine = isBest
+    ? 'New record. The paper remembers.'
+    : undoRemaining > 0
+      ? `${undoRemaining} undo${undoRemaining === 1 ? '' : 's'} left in the tin.`
+      : 'No undos spared. That was the whole handful.';
   const [shareFeedback, setShareFeedback] = useState<string | null>(null);
 
   async function shareScorecard() {
@@ -43,7 +49,10 @@ export default function GameOverCard({
       `Score: ${run.score.toLocaleString()}`,
       `Peak combo: ×${comboMultiplier(run.comboPeak).toFixed(2)}`,
       `Clears: ${totalClears}`,
+      `Quads: ${run.clears.quad}`,
+      `Perfect clears: ${run.perfectClears}`,
       `Placements: ${run.placements}`,
+      `Undos used: ${run.undosUsed}/3`,
       `Duration: ${fmtDuration(durationMs)}`,
       typeof window !== 'undefined' ? window.location.origin : '',
     ].filter(Boolean).join('\n');
@@ -71,7 +80,9 @@ export default function GameOverCard({
           )}
         </div>
 
-        <div className="go-stats">
+        <p className="go-note">{recapLine}</p>
+
+        <div className="go-stats go-stats-classic">
           <div className="go-stat">
             <div className="eyebrow">placements</div>
             <div className="num">{run.placements}</div>
@@ -79,6 +90,14 @@ export default function GameOverCard({
           <div className="go-stat">
             <div className="eyebrow">clears</div>
             <div className="num">{totalClears}</div>
+          </div>
+          <div className="go-stat">
+            <div className="eyebrow">quads</div>
+            <div className="num">{run.clears.quad}</div>
+          </div>
+          <div className="go-stat">
+            <div className="eyebrow">perfects</div>
+            <div className="num">{run.perfectClears}</div>
           </div>
           <div className="go-stat">
             <div className="eyebrow">longest combo</div>

@@ -22,11 +22,11 @@ import { useStatsStore } from '@/stores/useStatsStore';
 import {
   boardDensity,
   canPlace,
-  canShapeFit,
   getClearedLines,
   placePiece,
 } from '@/lib/engine/grid';
-import { comboMultiplier } from '@/lib/engine/scoring';
+import { pieceCells } from '@/lib/engine/pieces';
+import { comboMultiplier, comboTier } from '@/lib/engine/scoring';
 import type { PieceShape as ShapeT, PieceColor } from '@/lib/types';
 import { playSfx, vibrate, setSessionMuted } from '@/lib/audio/sfx';
 import { hasSeenHelp, markHelpSeen } from '@/lib/helpSeen';
@@ -38,6 +38,19 @@ type HighScoreToast = {
   score: number;
 };
 
+type SlotFeedback = {
+  index: number;
+  kind: 'placed' | 'invalid';
+  id: number;
+};
+
+type MomentToast = {
+  id: string;
+  name: string;
+  desc: string;
+  icon: string;
+};
+
 export default function ClassicGame() {
   useApplyWorldTheme();
   const hydrated = useGameStore((s) => s.hydrated);
@@ -46,6 +59,8 @@ export default function ClassicGame() {
   const selectedTrayIndex = useGameStore((s) => s.selectedTrayIndex);
   const scorePopup = useGameStore((s) => s.scorePopup);
   const toast = useGameStore((s) => s.toast);
+  const comboGraceEvent = useGameStore((s) => s.comboGraceEvent);
+  const clutch = useGameStore((s) => s.clutch);
   const hydrate = useGameStore((s) => s.hydrate);
   const startRun = useGameStore((s) => s.startRun);
   const selectTray = useGameStore((s) => s.selectTray);
@@ -95,10 +110,14 @@ export default function ClassicGame() {
   const [announcement, setAnnouncement] = useState('');
   const [highScoreToast, setHighScoreToast] =
     useState<HighScoreToast | null>(null);
+  const [momentToast, setMomentToast] = useState<MomentToast | null>(null);
+  const [slotFeedback, setSlotFeedback] = useState<SlotFeedback | null>(null);
+  const [settleCells, setSettleCells] = useState<Array<{ row: number; col: number }>>([]);
   const [runHighScoreBaseline, setRunHighScoreBaseline] = useState(0);
   const highScoreBaselineRunRef = useRef<string | null>(null);
   const highScoreBaselineValueRef = useRef(0);
   const highScoreToastRunRef = useRef<string | null>(null);
+  const milestoneSeenRef = useRef<Set<string>>(new Set());
   /** Narrow stage: combined next-up + undo card in the sidebar. */
   const [narrowViewport, setNarrowViewport] = useState(false);
   const {
@@ -180,8 +199,12 @@ export default function ClassicGame() {
     highScoreBaselineRunRef.current = runId;
     highScoreBaselineValueRef.current = highScore;
     highScoreToastRunRef.current = null;
+    milestoneSeenRef.current = new Set();
     setRunHighScoreBaseline(highScore);
     setHighScoreToast(null);
+    setMomentToast(null);
+    setSlotFeedback(null);
+    setSettleCells([]);
   }, [runId, statsHydrated, highScore]);
 
   useEffect(() => {
@@ -208,6 +231,101 @@ export default function ClassicGame() {
 
     return () => window.clearTimeout(t);
   }, [highScoreToast]);
+
+  const pulseSlot = useCallback((index: number, kind: SlotFeedback['kind']) => {
+    const feedback: SlotFeedback = { index, kind, id: Date.now() };
+    setSlotFeedback(null);
+    requestAnimationFrame(() => setSlotFeedback(feedback));
+    window.setTimeout(() => {
+      setSlotFeedback((current) => (current?.id === feedback.id ? null : current));
+    }, kind === 'placed' ? 360 : 440);
+  }, []);
+
+  const settlePlacedCells = useCallback(
+    (shape: ShapeT, row: number, col: number) => {
+      const cells = pieceCells(shape).map(([dr, dc]) => ({
+        row: row + dr,
+        col: col + dc,
+      }));
+      setSettleCells(cells);
+      window.setTimeout(() => {
+        setSettleCells((current) => (current === cells ? [] : current));
+      }, 360);
+    },
+    [],
+  );
+
+  useEffect(() => {
+    if (!momentToast) return;
+    const t = window.setTimeout(() => {
+      setMomentToast((current) =>
+        current?.id === momentToast.id ? null : current,
+      );
+    }, 2600);
+    return () => window.clearTimeout(t);
+  }, [momentToast]);
+
+  useEffect(() => {
+    if (!run || run.gameOver) return;
+    const seen = milestoneSeenRef.current;
+    const next: MomentToast[] = [];
+
+    const scoreMarks = [1000, 2500, 5000, 10000, 20000, 50000];
+    for (const mark of scoreMarks) {
+      const id = `score-${mark}`;
+      if (run.score >= mark && !seen.has(id)) {
+        next.push({
+          id,
+          name: `${mark.toLocaleString()} banked`,
+          desc: 'The board is starting to listen.',
+          icon: '◆',
+        });
+      }
+    }
+
+    const placementMarks = [25, 50, 100, 150, 200];
+    for (const mark of placementMarks) {
+      const id = `placements-${mark}`;
+      if (run.placements >= mark && !seen.has(id)) {
+        next.push({
+          id,
+          name: `${mark} placements`,
+          desc: 'Tiny moves, large opinions.',
+          icon: '●',
+        });
+      }
+    }
+
+    const tier = comboTier(run.comboPeak);
+    const tierId = tier === 'none' || tier === 'spark' ? null : `combo-${tier}`;
+    if (tierId && !seen.has(tierId)) {
+      next.push({
+        id: tierId,
+        name: `${tier.charAt(0).toUpperCase()}${tier.slice(1)} combo`,
+        desc: `Peak combo ×${comboMultiplier(run.comboPeak).toFixed(2)}.`,
+        icon: '★',
+      });
+    }
+
+    if (!next.length) return;
+    for (const item of next) seen.add(item.id);
+    const toastToShow = next[next.length - 1];
+    setMomentToast(toastToShow);
+    playSfx('achievement', !muted, sfxVolume * 0.7);
+    vibrate([8, 16, 8], hapticsOn);
+    setAnnouncement(`${toastToShow.name}. ${toastToShow.desc}`);
+  }, [run, muted, sfxVolume, hapticsOn]);
+
+  useEffect(() => {
+    if (!clutch) return;
+    playSfx('drop-invalid', !muted, sfxVolume);
+    vibrate(clutch.canUndo ? [18, 28, 18] : [28, 50, 28], hapticsOn);
+    setAnnouncement(
+      clutch.canUndo
+        ? `No legal moves. Last chance: ${clutch.undoRemaining} undo${clutch.undoRemaining === 1 ? '' : 's'} left.`
+        : 'No legal moves. The run is ending.',
+    );
+  }, [clutch?.id, clutch, muted, sfxVolume, hapticsOn]);
 
   const activePiece =
     selectedTrayIndex !== null && run ? run.tray[selectedTrayIndex] : null;
@@ -291,13 +409,24 @@ export default function ClassicGame() {
       if (cell && run && selectedTrayIndex !== null) {
         const row = Number(cell.dataset.row) - pickupOffset.r;
         const col = Number(cell.dataset.col) - pickupOffset.c;
+        const placedPiece = run.tray[selectedTrayIndex];
         const ok = tryPlace(selectedTrayIndex, row, col);
         if (ok) {
           playSfx('drop-legal', !muted, sfxVolume);
+          vibrate(8, hapticsOn);
+          pulseSlot(selectedTrayIndex, 'placed');
+          if (placedPiece) settlePlacedCells(placedPiece.shape, row, col);
         } else {
           playSfx('drop-invalid', !muted, sfxVolume);
+          vibrate([10, 18, 10], hapticsOn);
+          pulseSlot(selectedTrayIndex, 'invalid');
           triggerWobble();
         }
+      } else if (selectedTrayIndex !== null) {
+        playSfx('drop-invalid', !muted, sfxVolume);
+        vibrate([10, 18, 10], hapticsOn);
+        pulseSlot(selectedTrayIndex, 'invalid');
+        triggerWobble();
       }
       setIsDragging(false);
       setHoveredAnchor(null);
@@ -325,6 +454,9 @@ export default function ClassicGame() {
     tapToSelect,
     pickupOffset,
     sfxVolume,
+    hapticsOn,
+    pulseSlot,
+    settlePlacedCells,
     scheduleGhostUpdate,
     cellDim,
     pointerKind,
@@ -393,11 +525,17 @@ export default function ClassicGame() {
       if (selectedTrayIndex === null || !run) return;
       const anchorRow = row - pickupOffset.r;
       const anchorCol = col - pickupOffset.c;
+      const placedPiece = run.tray[selectedTrayIndex];
       const ok = tryPlace(selectedTrayIndex, anchorRow, anchorCol);
       if (ok) {
         playSfx('drop-legal', !muted, sfxVolume);
+        vibrate(8, hapticsOn);
+        pulseSlot(selectedTrayIndex, 'placed');
+        if (placedPiece) settlePlacedCells(placedPiece.shape, anchorRow, anchorCol);
       } else {
         playSfx('drop-invalid', !muted, sfxVolume);
+        vibrate([10, 18, 10], hapticsOn);
+        pulseSlot(selectedTrayIndex, 'invalid');
         triggerWobble();
       }
       setHoveredAnchor(null);
@@ -405,7 +543,19 @@ export default function ClassicGame() {
       setPickupOffset({ r: 0, c: 0 });
       if (!tapToSelect) selectTray(null);
     },
-    [selectedTrayIndex, run, tryPlace, muted, tapToSelect, selectTray, pickupOffset, sfxVolume],
+    [
+      selectedTrayIndex,
+      run,
+      tryPlace,
+      muted,
+      tapToSelect,
+      selectTray,
+      pickupOffset,
+      sfxVolume,
+      hapticsOn,
+      pulseSlot,
+      settlePlacedCells,
+    ],
   );
 
   // Tap-to-select fallback: if tapToSelect is on, cellDown on a cell places
@@ -415,10 +565,17 @@ export default function ClassicGame() {
       if (selectedTrayIndex === null || !run) return;
       const anchorRow = row - pickupOffset.r;
       const anchorCol = col - pickupOffset.c;
+      const placedPiece = run.tray[selectedTrayIndex];
       const ok = tryPlace(selectedTrayIndex, anchorRow, anchorCol);
-      if (ok) playSfx('drop-legal', !muted, sfxVolume);
-      else {
+      if (ok) {
+        playSfx('drop-legal', !muted, sfxVolume);
+        vibrate(8, hapticsOn);
+        pulseSlot(selectedTrayIndex, 'placed');
+        if (placedPiece) settlePlacedCells(placedPiece.shape, anchorRow, anchorCol);
+      } else {
         playSfx('drop-invalid', !muted, sfxVolume);
+        vibrate([10, 18, 10], hapticsOn);
+        pulseSlot(selectedTrayIndex, 'invalid');
         triggerWobble();
       }
       setHoveredAnchor(null);
@@ -426,7 +583,19 @@ export default function ClassicGame() {
       setPickupOffset({ r: 0, c: 0 });
       selectTray(null);
     },
-    [tapToSelect, selectedTrayIndex, run, tryPlace, muted, selectTray, pickupOffset, sfxVolume],
+    [
+      tapToSelect,
+      selectedTrayIndex,
+      run,
+      tryPlace,
+      muted,
+      selectTray,
+      pickupOffset,
+      sfxVolume,
+      hapticsOn,
+      pulseSlot,
+      settlePlacedCells,
+    ],
   );
 
   useEffect(() => {
@@ -495,7 +664,25 @@ export default function ClassicGame() {
       if (selectedTrayIndex !== null && run.tray[selectedTrayIndex]) {
         if (e.key === 'Enter' && hoveredAnchor) {
           e.preventDefault();
-          tryPlace(selectedTrayIndex, hoveredAnchor.row, hoveredAnchor.col);
+          const placedPiece = run.tray[selectedTrayIndex];
+          const ok = tryPlace(selectedTrayIndex, hoveredAnchor.row, hoveredAnchor.col);
+          if (ok) {
+            playSfx('drop-legal', !muted, sfxVolume);
+            vibrate(8, hapticsOn);
+            pulseSlot(selectedTrayIndex, 'placed');
+            if (placedPiece) {
+              settlePlacedCells(
+                placedPiece.shape,
+                hoveredAnchor.row,
+                hoveredAnchor.col,
+              );
+            }
+          } else {
+            playSfx('drop-invalid', !muted, sfxVolume);
+            vibrate([10, 18, 10], hapticsOn);
+            pulseSlot(selectedTrayIndex, 'invalid');
+            triggerWobble();
+          }
           return;
         }
         const cur = hoveredAnchor ?? { row: 0, col: 0 };
@@ -512,7 +699,21 @@ export default function ClassicGame() {
     }
     window.addEventListener('keydown', onKey);
     return () => window.removeEventListener('keydown', onKey);
-  }, [run, selectedTrayIndex, hoveredAnchor, selectTray, undo, rotateSelected, tryPlace, rotationEnabled]);
+  }, [
+    run,
+    selectedTrayIndex,
+    hoveredAnchor,
+    selectTray,
+    undo,
+    rotateSelected,
+    tryPlace,
+    rotationEnabled,
+    muted,
+    sfxVolume,
+    hapticsOn,
+    pulseSlot,
+    settlePlacedCells,
+  ]);
 
   // Preclear detection: compute which rows/cols would clear if ghost placed.
   // `ghost.legal` is computed in the store against whatever shape was passed
@@ -595,9 +796,19 @@ export default function ClassicGame() {
             icon={toast.icon}
           />
         )
+      ) || (
+        momentToast && (
+          <AchievementToast
+            key={momentToast.id}
+            eyebrow="moment"
+            name={momentToast.name}
+            desc={momentToast.desc}
+            icon={momentToast.icon}
+          />
+        )
       )}
 
-      <div className="stage">
+      <div className="stage classic-stage">
         <div className="left-stack classic-left-stack">
           <HudCard
             variant="score"
@@ -610,10 +821,15 @@ export default function ClassicGame() {
             label="combo"
             value={comboDisplay}
             combo={run.combo}
+            comboGrace={run.comboGrace}
+            comboEvent={comboGraceEvent?.kind ?? null}
           />
         </div>
 
-        <div className="board-wrap" ref={trayWrapRef}>
+        <div
+          className={`board-wrap${clutch ? ' board-wrap-clutch' : ''}`}
+          ref={trayWrapRef}
+        >
           <GameBoard
             board={run.board}
             // On-board ghost + preclear preview only show when a piece is
@@ -640,6 +856,7 @@ export default function ClassicGame() {
                   }
                 : null
             }
+            settleCells={settleCells}
             clearingRows={clearingRows}
             clearingCols={clearingCols}
             clearingBoard={clearingBoard}
@@ -651,6 +868,36 @@ export default function ClassicGame() {
             onCellUp={onCellUp}
             onBoardLeave={() => setHoveredAnchor(null)}
           />
+          {clutch && (
+            <div
+              className={`clutch-card ${clutch.canUndo ? 'clutch-card-live' : 'clutch-card-ending'}`}
+              role="status"
+              aria-live="assertive"
+            >
+              <div>
+                <div className="eyebrow">no moves</div>
+                <p>
+                  {clutch.canUndo
+                    ? `${clutch.undoRemaining} undo${clutch.undoRemaining === 1 ? '' : 's'} left. Save it.`
+                    : 'The tray is boxed in. Run ending.'}
+                </p>
+              </div>
+              {clutch.canUndo && (
+                <button
+                  type="button"
+                  className="btn btn-primary"
+                  onClick={() => {
+                    if (undo()) {
+                      playSfx('pickup', !muted, sfxVolume);
+                      vibrate(12, hapticsOn);
+                    }
+                  }}
+                >
+                  Undo now
+                </button>
+              )}
+            </div>
+          )}
           <div key={wobbleKey} className={wobbleKey ? 'tray-wobble' : ''}>
             <Tray
               pieces={run.tray}
@@ -659,6 +906,7 @@ export default function ClassicGame() {
               // `selectedIndex` handles the keyboard / tap-to-select highlight.
               activeIndex={isDragging ? selectedTrayIndex : null}
               selectedIndex={!isDragging ? selectedTrayIndex : null}
+              slotFeedback={slotFeedback}
               onPointerDown={handleTrayDown}
               hint={trayHint}
               chromeVisible={showTrayChrome}
@@ -701,7 +949,13 @@ export default function ClassicGame() {
       {isDragging && activePiece && (
         <div
           ref={ghostElRef}
-          className="drag-ghost"
+          className={`drag-ghost classic-drag-ghost ${
+            ghost?.legal === false
+              ? 'drag-ghost-invalid'
+              : ghost
+                ? 'drag-ghost-legal'
+                : ''
+          }`}
           style={{
             position: 'fixed',
             top: 0,

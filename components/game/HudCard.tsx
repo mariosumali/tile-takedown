@@ -9,6 +9,10 @@ type Props = {
   sub?: string;
   /** Current combo count (number of consecutive clears). Used to derive tier visuals. */
   combo?: number;
+  /** One-turn grace currently banked after a clear. */
+  comboGrace?: number;
+  /** Short-lived feedback when grace is earned or spent. */
+  comboEvent?: 'saved' | 'held' | null;
   /** Legacy: number of meter segments currently lit. Falls back to min(combo, comboTotal). */
   comboOn?: number;
   comboTotal?: number;
@@ -39,6 +43,8 @@ export default function HudCard({
   value,
   sub,
   combo,
+  comboGrace = 0,
+  comboEvent = null,
   comboOn,
   comboTotal = 8,
 }: Props) {
@@ -46,6 +52,14 @@ export default function HudCard({
   const tier = variant === 'combo' ? comboTier(activeCount) : 'none';
   const tierLabel = TIER_LABEL[tier];
   const lit = Math.min(comboTotal, Math.max(0, comboOn ?? activeCount));
+  const comboGraceText =
+    variant !== 'combo' || activeCount <= 0
+      ? null
+      : comboEvent === 'held'
+        ? 'combo held'
+        : comboGrace > 0
+          ? 'grace saved'
+          : null;
 
   return (
     <div
@@ -69,6 +83,11 @@ export default function HudCard({
           {tierLabel && (
             <div className="combo-tier-label" aria-hidden="true">
               {tierLabel}
+            </div>
+          )}
+          {comboGraceText && (
+            <div className="combo-grace" data-state={comboEvent ?? 'saved'}>
+              {comboGraceText}
             </div>
           )}
         </>

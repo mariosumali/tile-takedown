@@ -7,6 +7,7 @@ type Props = {
   pieces: ReadonlyArray<Piece | null>;
   activeIndex?: number | null;
   selectedIndex?: number | null;
+  slotFeedback?: { index: number; kind: 'placed' | 'invalid'; id: number } | null;
   onPointerDown?: (
     i: number,
     e: React.PointerEvent<HTMLDivElement>,
@@ -19,6 +20,7 @@ export default function Tray({
   pieces,
   activeIndex = null,
   selectedIndex = null,
+  slotFeedback = null,
   onPointerDown,
   hint = 'drag a piece onto the board',
   chromeVisible = true,
@@ -39,6 +41,7 @@ export default function Tray({
           const classes = ['tray-slot'];
           if (activeIndex === i) classes.push('active');
           if (selectedIndex === i) classes.push('selected');
+          if (slotFeedback?.index === i) classes.push(`feedback-${slotFeedback.kind}`);
           if (!piece) classes.push('empty');
           return (
             <div
