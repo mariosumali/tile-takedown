@@ -1184,9 +1184,19 @@ button {
   overflow: hidden;
   transition: transform 0.18s ease, box-shadow 0.24s ease, background 0.3s ease;
 }
+.combo-value-row {
+  position: relative;
+  z-index: 2;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin-top: 10px;
+  min-width: 0;
+}
 .card.combo .big {
   color: var(--tomato);
   font-size: 62px;
+  margin-top: 0;
   position: relative;
   z-index: 2;
   transition: text-shadow 0.2s ease, color 0.3s ease;
@@ -1230,11 +1240,10 @@ button {
     0 0 22px var(--tomato);
 }
 
-/* Tier label (HOT / FIRE / INFERNO) beneath the multiplier */
+/* Tier label (HOT / FIRE / INFERNO) beside the multiplier */
 .combo-tier-label {
   position: relative;
   z-index: 2;
-  margin-top: 8px;
   font-family: var(--font-display, inherit);
   font-weight: 800;
   font-size: 11px;
@@ -1245,7 +1254,7 @@ button {
   border: 2px solid var(--ink);
   border-radius: var(--r-sm);
   background: var(--paper);
-  align-self: center;
+  flex: 0 0 auto;
   width: fit-content;
   display: inline-block;
 }
@@ -1930,45 +1939,6 @@ button {
   opacity: 0;
 }
 
-/* Next + undos combined (mobile sidebar — see NextTrayUndoComboCard) */
-.next-undo-combo .nu-combo-next + .nu-combo-undo {
-  margin-top: 12px;
-  padding-top: 12px;
-  border-top: 1.5px dashed rgba(28, 23, 20, 0.2);
-}
-.next-undo-combo .nu-combo-next .nt-row {
-  margin-top: 8px;
-}
-.next-undo-combo .nu-combo-undo .undo-coins {
-  margin-top: 10px;
-}
-
-/* ---------- Undo card ---------- */
-.undo-coins {
-  display: flex;
-  gap: 10px;
-  margin-top: 14px;
-}
-.undo-coins span {
-  width: 34px;
-  height: 34px;
-  border-radius: 50%;
-  background: var(--tomato);
-  border: 2px solid var(--ink);
-  box-shadow: var(--shadow-sm);
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  font-family: var(--font-display), 'Caprasimo', serif;
-  color: var(--paper);
-  font-size: 14px;
-}
-.undo-coins span.spent {
-  background: var(--paper-2);
-  color: var(--ink-3);
-  box-shadow: none;
-}
-
 /* ---------- Mini stats ---------- */
 .mini-stats .row {
   display: flex;
@@ -2077,6 +2047,7 @@ button {
     grid-template-columns: repeat(2, minmax(0, 1fr));
   }
   .card .big { font-size: 34px; }
+  .combo-value-row { gap: 10px; }
   .card.combo .big { font-size: 38px; }
   .topbar { padding: 16px 20px; }
 }
@@ -2250,8 +2221,8 @@ button {
   .density-chip { font-size: 12px; }
   .density-chip strong { font-size: 15px; }
 
-  /* HUD on mobile — score cards in one row; sidebar stacks combined
-     next+undo card then run stats (full width each). */
+  /* HUD on mobile — score cards in one row; sidebar stacks next-tray
+     then run stats (full width each). */
   .left-stack {
     grid-template-columns: repeat(3, 1fr);
     gap: 10px;
@@ -2268,7 +2239,9 @@ button {
     border-radius: var(--r-md);
   }
   .card .big { font-size: 26px; margin-top: 6px; }
+  .combo-value-row { gap: 8px; margin-top: 6px; }
   .card.combo .big { font-size: 28px; }
+  .combo-tier-label { font-size: 9px; letter-spacing: 1.8px; padding: 2px 6px; }
   .card .sub { font-size: 11px; margin-top: 4px; }
   .card.score,
   .card.high,
@@ -2277,7 +2250,6 @@ button {
   .combo-bars span { height: 6px; }
   .mini-stats .row { padding: 8px 0; }
   .mini-stats .row .v { font-size: 17px; }
-  .undo-coins span { width: 28px; height: 28px; font-size: 12px; }
   .nt-piece > div { width: 9px; height: 9px; }
 
   /* Tray: keep plenty of touch target. On mobile we size the slot min from
@@ -3572,7 +3544,6 @@ button {
   line-height: 1.5;
   background: #0c0c0c;
 }
-.dbg-term-line { }
 .dbg-term-cmd { color: #9eead3; }
 .dbg-term-out { color: #d8ffcf; opacity: 0.92; }
 .dbg-term-err { color: #ff8a7a; }

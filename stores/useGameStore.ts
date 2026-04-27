@@ -41,17 +41,10 @@ type ScorePopup = { id: number; amount: number; mult: string };
 type ComboGraceEvent = { id: number; kind: 'saved' | 'held' };
 type ClutchState = {
   id: number;
-  undoRemaining: number;
-  canUndo: boolean;
   at: number;
 };
 type PersistedRunState = Omit<RunState, 'comboGrace'> &
   Partial<Pick<RunState, 'comboGrace'>>;
-
-type Snap = Pick<
-  RunState,
-  'board' | 'tray' | 'nextTray' | 'score' | 'combo' | 'comboGrace' | 'comboPeak' | 'placements' | 'clears' | 'bag' | 'undosUsed' | 'perfectClears'
-> & { placedSizes: number[] };
 
 type State = {
   hydrated: boolean;
@@ -60,7 +53,6 @@ type State = {
   placedShapes: Set<string>; // for FULL_DECK achievement
   selectedTrayIndex: number | null;
   ghost: { row: number; col: number; legal: boolean } | null;
-  undoStack: Snap[];
   scorePopup: ScorePopup | null;
   lastClear: { rows: number[]; cols: number[]; at: number } | null;
   toast: { id: string; name: string; desc: string; icon?: string } | null;
@@ -88,7 +80,6 @@ type State = {
   rotateSelected: () => void;
 
   tryPlace: (trayIndex: number, row: number, col: number) => boolean;
-  undo: () => boolean;
 
   /** Called by GameBoard once the last tile in the batch finishes its pop. */
   commitClear: () => void;
@@ -97,8 +88,6 @@ type State = {
   dismissScorePopup: () => void;
   dismissComboGraceEvent: () => void;
 };
-
-const UNDO_LIMIT = 3;
 
 function shapeKey(shape: PieceShape): string {
   return shape.map((r) => r.join('')).join('|');
@@ -124,10 +113,12 @@ function persistRun(run: RunState | null): void {
   writeJSON(K.activeRun, run);
 }
 
-function normalizeRun(run: PersistedRunState): RunState {
+function normalizeRun(run: PersistedRunState & { undosUsed?: number }): RunState {
+  const rest = { ...run };
+  delete rest.undosUsed;
   return {
-    ...run,
-    comboGrace: run.comboGrace ?? 0,
+    ...rest,
+    comboGrace: rest.comboGrace ?? 0,
   };
 }
 
@@ -144,25 +135,6 @@ export const useGameStore = create<State>((set, get) => {
         });
       }
     }
-  }
-
-  function snapshotRun(): Snap {
-    const run = get().run!;
-    return {
-      board: run.board,
-      tray: run.tray,
-      nextTray: run.nextTray,
-      score: run.score,
-      combo: run.combo,
-      comboGrace: run.comboGrace,
-      comboPeak: run.comboPeak,
-      placements: run.placements,
-      clears: { ...run.clears },
-      bag: run.bag,
-      undosUsed: run.undosUsed,
-      perfectClears: run.perfectClears,
-      placedSizes: get().placedSizes.slice(),
-    };
   }
 
   function buildInitialRun(pieceSet: PieceSet): RunState {
@@ -195,7 +167,6 @@ export const useGameStore = create<State>((set, get) => {
       placements: 0,
       clears: { single: 0, double: 0, triple: 0, quad: 0 },
       perfectClears: 0,
-      undosUsed: 0,
       startedAt: new Date().toISOString(),
       lastAt: new Date().toISOString(),
       gameOver: false,
@@ -210,7 +181,6 @@ export const useGameStore = create<State>((set, get) => {
     placedShapes: new Set<string>(),
     selectedTrayIndex: null,
     ghost: null,
-    undoStack: [],
     scorePopup: null,
     lastClear: null,
     toast: null,
@@ -240,7 +210,6 @@ export const useGameStore = create<State>((set, get) => {
         placedShapes: new Set(),
         selectedTrayIndex: null,
         ghost: null,
-        undoStack: [],
         scorePopup: null,
         lastClear: null,
         comboGraceEvent: null,
@@ -322,8 +291,6 @@ export const useGameStore = create<State>((set, get) => {
       const piece = run.tray[trayIndex];
       if (!piece) return false;
       if (!canPlace(run.board, piece.shape, row, col)) return false;
-
-      const snap = snapshotRun();
 
       const placed = placePiece(run.board, piece, row, col);
       const cleared = getClearedLines(placed);
@@ -443,10 +410,6 @@ export const useGameStore = create<State>((set, get) => {
       const placedShapes = new Set(state.placedShapes);
       placedShapes.add(shapeKey(piece.shape));
 
-      // Cap undo stack to UNDO_LIMIT
-      const undoStack = state.undoStack.concat(snap);
-      while (undoStack.length > UNDO_LIMIT + 20) undoStack.shift();
-
       // Score popup
       const popup: ScorePopup = {
         id: Date.now(),
@@ -474,7 +437,6 @@ export const useGameStore = create<State>((set, get) => {
         placedShapes,
         selectedTrayIndex: null,
         ghost: null,
-        undoStack,
         scorePopup: cleared.totalLines > 0 ? popup : null,
         lastClear,
         comboGraceEvent,
@@ -540,11 +502,8 @@ export const useGameStore = create<State>((set, get) => {
         hasRemaining &&
         !canAnyPieceFit(nextRun.board, nextRun.tray, undefined, rotationAllowed)
       ) {
-        const undoRemaining = Math.max(0, UNDO_LIMIT - nextRun.undosUsed);
         const clutch: ClutchState = {
           id: Date.now(),
-          undoRemaining,
-          canUndo: undoRemaining > 0 && undoStack.length > 0,
           at: Date.now(),
         };
         set({ clutch });
@@ -563,7 +522,7 @@ export const useGameStore = create<State>((set, get) => {
               rotationAllowed,
             );
           if (stillLocked) get().endRun();
-        }, clutch.canUndo ? 4200 : 1200);
+        }, 1200);
       }
 
       // Clear score popup after a tick
@@ -580,46 +539,6 @@ export const useGameStore = create<State>((set, get) => {
         }, 1800);
       }
 
-      return true;
-    },
-
-    undo: () => {
-      const { run, undoStack } = get();
-      if (!run || run.gameOver) return false;
-      if (run.undosUsed >= UNDO_LIMIT) return false;
-      const snap = undoStack[undoStack.length - 1];
-      if (!snap) return false;
-      const nextRun: RunState = {
-        ...run,
-        board: snap.board,
-        tray: snap.tray,
-        nextTray: snap.nextTray,
-        score: snap.score,
-        combo: snap.combo,
-        comboGrace: snap.comboGrace,
-        comboPeak: snap.comboPeak,
-        placements: snap.placements,
-        clears: { ...snap.clears },
-        bag: snap.bag,
-        perfectClears: snap.perfectClears,
-        undosUsed: run.undosUsed + 1,
-        lastAt: new Date().toISOString(),
-      };
-      set({
-        run: nextRun,
-        placedSizes: snap.placedSizes.slice(),
-        selectedTrayIndex: null,
-        ghost: null,
-        undoStack: undoStack.slice(0, -1),
-        scorePopup: null,
-        lastClear: null,
-        comboGraceEvent: null,
-        clutch: null,
-        clearingRows: [],
-        clearingCols: [],
-        clearingBoard: null,
-      });
-      persistRun(nextRun);
       return true;
     },
 

@@ -74,7 +74,6 @@ export type RunState = {
   placements: number;
   clears: ClearCounts;
   perfectClears: number;
-  undosUsed: number;
   startedAt: string;
   lastAt: string;
   gameOver: boolean;

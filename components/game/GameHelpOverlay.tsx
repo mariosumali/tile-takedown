@@ -16,7 +16,7 @@ const DESKTOP_ITEMS: Record<GameHelpMode, HelpItem[]> = {
     { control: 'Arrows', label: 'Move the selected ghost around the grid.' },
     { control: 'Enter', label: 'Place the selected piece at the ghost.' },
     { control: 'R', label: 'Rotate when rotation is enabled in settings.' },
-    { control: 'Z', label: 'Undo. Classic gives you three.' },
+    { control: 'M', label: 'Mute sound.' },
   ],
   levels: [
     { control: 'Drag', label: 'Place pieces to reach the level target.' },
@@ -49,7 +49,7 @@ const TOUCH_ITEMS: Record<GameHelpMode, HelpItem[]> = {
     { control: 'Lifted piece', label: 'On touch, the piece floats above your finger so you can see it.' },
     { control: 'Tap mode', label: 'Turn on tap-to-select in settings for piece, then cell placement.' },
     { control: 'Ghost', label: 'Green previews fit; red previews bounce back.' },
-    { control: 'Undo', label: 'Classic gives you three undos per run.' },
+    { control: 'No moves', label: 'When the tray cannot fit, the run ends.' },
   ],
   levels: [
     { control: 'Drag', label: 'Place pieces and chase the target score.' },

@@ -6,8 +6,6 @@ import HudCard from './HudCard';
 import GameBoard from './GameBoard';
 import Tray from './Tray';
 import NextTrayCard from './NextTrayCard';
-import NextTrayUndoComboCard from './NextTrayUndoComboCard';
-import UndoCard from './UndoCard';
 import MiniStats from './MiniStats';
 import AchievementToast from './AchievementToast';
 import GameOverCard from './GameOverCard';
@@ -26,7 +24,10 @@ import {
   placePiece,
 } from '@/lib/engine/grid';
 import { pieceCells } from '@/lib/engine/pieces';
-import { comboMultiplier, comboTier } from '@/lib/engine/scoring';
+import {
+  comboMultiplier,
+  // comboTier,
+} from '@/lib/engine/scoring';
 import type { PieceShape as ShapeT, PieceColor } from '@/lib/types';
 import { playSfx, vibrate, setSessionMuted } from '@/lib/audio/sfx';
 import { hasSeenHelp, markHelpSeen } from '@/lib/helpSeen';
@@ -59,16 +60,13 @@ export default function ClassicGame() {
   const selectedTrayIndex = useGameStore((s) => s.selectedTrayIndex);
   const scorePopup = useGameStore((s) => s.scorePopup);
   const toast = useGameStore((s) => s.toast);
-  const comboGraceEvent = useGameStore((s) => s.comboGraceEvent);
   const clutch = useGameStore((s) => s.clutch);
   const hydrate = useGameStore((s) => s.hydrate);
   const startRun = useGameStore((s) => s.startRun);
   const selectTray = useGameStore((s) => s.selectTray);
   const setGhost = useGameStore((s) => s.setGhost);
   const tryPlace = useGameStore((s) => s.tryPlace);
-  const undo = useGameStore((s) => s.undo);
   const rotateSelected = useGameStore((s) => s.rotateSelected);
-  const placedSizes = useGameStore((s) => s.placedSizes);
   const lastClear = useGameStore((s) => s.lastClear);
   const clearingRows = useGameStore((s) => s.clearingRows);
   const clearingCols = useGameStore((s) => s.clearingCols);
@@ -117,8 +115,8 @@ export default function ClassicGame() {
   const highScoreBaselineRunRef = useRef<string | null>(null);
   const highScoreBaselineValueRef = useRef(0);
   const highScoreToastRunRef = useRef<string | null>(null);
-  const milestoneSeenRef = useRef<Set<string>>(new Set());
-  /** Narrow stage: combined next-up + undo card in the sidebar. */
+  // const milestoneSeenRef = useRef<Set<string>>(new Set());
+  /** Narrow stage: compact sidebar layout. */
   const [narrowViewport, setNarrowViewport] = useState(false);
   const {
     showTrayChrome,
@@ -199,7 +197,7 @@ export default function ClassicGame() {
     highScoreBaselineRunRef.current = runId;
     highScoreBaselineValueRef.current = highScore;
     highScoreToastRunRef.current = null;
-    milestoneSeenRef.current = new Set();
+    // milestoneSeenRef.current = new Set();
     setRunHighScoreBaseline(highScore);
     setHighScoreToast(null);
     setMomentToast(null);
@@ -265,66 +263,62 @@ export default function ClassicGame() {
     return () => window.clearTimeout(t);
   }, [momentToast]);
 
-  useEffect(() => {
-    if (!run || run.gameOver) return;
-    const seen = milestoneSeenRef.current;
-    const next: MomentToast[] = [];
-
-    const scoreMarks = [1000, 2500, 5000, 10000, 20000, 50000];
-    for (const mark of scoreMarks) {
-      const id = `score-${mark}`;
-      if (run.score >= mark && !seen.has(id)) {
-        next.push({
-          id,
-          name: `${mark.toLocaleString()} banked`,
-          desc: 'The board is starting to listen.',
-          icon: '◆',
-        });
-      }
-    }
-
-    const placementMarks = [25, 50, 100, 150, 200];
-    for (const mark of placementMarks) {
-      const id = `placements-${mark}`;
-      if (run.placements >= mark && !seen.has(id)) {
-        next.push({
-          id,
-          name: `${mark} placements`,
-          desc: 'Tiny moves, large opinions.',
-          icon: '●',
-        });
-      }
-    }
-
-    const tier = comboTier(run.comboPeak);
-    const tierId = tier === 'none' || tier === 'spark' ? null : `combo-${tier}`;
-    if (tierId && !seen.has(tierId)) {
-      next.push({
-        id: tierId,
-        name: `${tier.charAt(0).toUpperCase()}${tier.slice(1)} combo`,
-        desc: `Peak combo ×${comboMultiplier(run.comboPeak).toFixed(2)}.`,
-        icon: '★',
-      });
-    }
-
-    if (!next.length) return;
-    for (const item of next) seen.add(item.id);
-    const toastToShow = next[next.length - 1];
-    setMomentToast(toastToShow);
-    playSfx('achievement', !muted, sfxVolume * 0.7);
-    vibrate([8, 16, 8], hapticsOn);
-    setAnnouncement(`${toastToShow.name}. ${toastToShow.desc}`);
-  }, [run, muted, sfxVolume, hapticsOn]);
+  // useEffect(() => {
+  //   if (!run || run.gameOver) return;
+  //   const seen = milestoneSeenRef.current;
+  //   const next: MomentToast[] = [];
+  //
+  //   const scoreMarks = [1000, 2500, 5000, 10000, 20000, 50000];
+  //   for (const mark of scoreMarks) {
+  //     const id = `score-${mark}`;
+  //     if (run.score >= mark && !seen.has(id)) {
+  //       next.push({
+  //         id,
+  //         name: `${mark.toLocaleString()} banked`,
+  //         desc: 'The board is starting to listen.',
+  //         icon: '◆',
+  //       });
+  //     }
+  //   }
+  //
+  //   const placementMarks = [25, 50, 100, 150, 200];
+  //   for (const mark of placementMarks) {
+  //     const id = `placements-${mark}`;
+  //     if (run.placements >= mark && !seen.has(id)) {
+  //       next.push({
+  //         id,
+  //         name: `${mark} placements`,
+  //         desc: 'Tiny moves, large opinions.',
+  //         icon: '●',
+  //       });
+  //     }
+  //   }
+  //
+  //   const tier = comboTier(run.comboPeak);
+  //   const tierId = tier === 'none' || tier === 'spark' ? null : `combo-${tier}`;
+  //   if (tierId && !seen.has(tierId)) {
+  //     next.push({
+  //       id: tierId,
+  //       name: `${tier.charAt(0).toUpperCase()}${tier.slice(1)} combo`,
+  //       desc: `Peak combo ×${comboMultiplier(run.comboPeak).toFixed(2)}.`,
+  //       icon: '★',
+  //     });
+  //   }
+  //
+  //   if (!next.length) return;
+  //   for (const item of next) seen.add(item.id);
+  //   const toastToShow = next[next.length - 1];
+  //   setMomentToast(toastToShow);
+  //   playSfx('achievement', !muted, sfxVolume * 0.7);
+  //   vibrate([8, 16, 8], hapticsOn);
+  //   setAnnouncement(`${toastToShow.name}. ${toastToShow.desc}`);
+  // }, [run, muted, sfxVolume, hapticsOn]);
 
   useEffect(() => {
     if (!clutch) return;
     playSfx('drop-invalid', !muted, sfxVolume);
-    vibrate(clutch.canUndo ? [18, 28, 18] : [28, 50, 28], hapticsOn);
-    setAnnouncement(
-      clutch.canUndo
-        ? `No legal moves. Last chance: ${clutch.undoRemaining} undo${clutch.undoRemaining === 1 ? '' : 's'} left.`
-        : 'No legal moves. The run is ending.',
-    );
+    vibrate([28, 50, 28], hapticsOn);
+    setAnnouncement('No legal moves. The run is ending.');
   }, [clutch?.id, clutch, muted, sfxVolume, hapticsOn]);
 
   const activePiece =
@@ -635,11 +629,6 @@ export default function ClassicGame() {
         if (run.tray[i]) selectTray(selectedTrayIndex === i ? null : i);
         return;
       }
-      if (e.key === 'z' || e.key === 'Z') {
-        e.preventDefault();
-        undo();
-        return;
-      }
       if ((e.key === 'r' || e.key === 'R') && rotationEnabled) {
         if (isTouchLikeEnvironment()) return;
         e.preventDefault();
@@ -704,7 +693,6 @@ export default function ClassicGame() {
     selectedTrayIndex,
     hoveredAnchor,
     selectTray,
-    undo,
     rotateSelected,
     tryPlace,
     rotationEnabled,
@@ -759,6 +747,9 @@ export default function ClassicGame() {
   ];
 
   const comboDisplay = `×${comboMultiplier(run.combo).toFixed(2)}`;
+  const nextTrayShapes = run.nextTray.map((p) => p.shape);
+  const showNarrowNextTray =
+    showTrayChrome && showNextTray && nextTrayShapes.length > 0;
 
   const runDurationMs =
     new Date(run.lastAt).getTime() - new Date(run.startedAt).getTime();
@@ -821,8 +812,6 @@ export default function ClassicGame() {
             label="combo"
             value={comboDisplay}
             combo={run.combo}
-            comboGrace={run.comboGrace}
-            comboEvent={comboGraceEvent?.kind ?? null}
           />
         </div>
 
@@ -870,32 +859,14 @@ export default function ClassicGame() {
           />
           {clutch && (
             <div
-              className={`clutch-card ${clutch.canUndo ? 'clutch-card-live' : 'clutch-card-ending'}`}
+              className="clutch-card clutch-card-ending"
               role="status"
               aria-live="assertive"
             >
               <div>
                 <div className="eyebrow">no moves</div>
-                <p>
-                  {clutch.canUndo
-                    ? `${clutch.undoRemaining} undo${clutch.undoRemaining === 1 ? '' : 's'} left. Save it.`
-                    : 'The tray is boxed in. Run ending.'}
-                </p>
+                <p>The tray is boxed in. Run ending.</p>
               </div>
-              {clutch.canUndo && (
-                <button
-                  type="button"
-                  className="btn btn-primary"
-                  onClick={() => {
-                    if (undo()) {
-                      playSfx('pickup', !muted, sfxVolume);
-                      vibrate(12, hapticsOn);
-                    }
-                  }}
-                >
-                  Undo now
-                </button>
-              )}
             </div>
           )}
           <div key={wobbleKey} className={wobbleKey ? 'tray-wobble' : ''}>
@@ -917,22 +888,14 @@ export default function ClassicGame() {
         <div className="right-stack">
           {narrowViewport ? (
             <>
-              {showTrayChrome && (
-                <NextTrayUndoComboCard
-                  nextShapes={run.nextTray.map((p) => p.shape)}
-                  showNext={showNextTray}
-                  undosUsed={run.undosUsed}
-                  undoTotal={3}
-                />
-              )}
+              {showNarrowNextTray && <NextTrayCard pieces={nextTrayShapes} />}
               {showRunStats && <MiniStats rows={miniStatsRows} />}
             </>
           ) : (
             <>
               {showNextTray && run.nextTray.length > 0 && (
-                <NextTrayCard pieces={run.nextTray.map((p) => p.shape)} />
+                <NextTrayCard pieces={nextTrayShapes} />
               )}
-              <UndoCard used={run.undosUsed} total={3} />
               {showRunStats && <MiniStats rows={miniStatsRows} />}
             </>
           )}

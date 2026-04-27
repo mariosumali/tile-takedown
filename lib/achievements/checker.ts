@@ -53,9 +53,6 @@ export function checkAchievements(ctx: CheckContext): string[] {
     if (run.score >= 20000) out.push('SCORE_20K');
     if (run.score >= 50000) out.push('SCORE_50K');
 
-    if (run.undosUsed === 0) out.push('NO_UNDOS_RUN');
-    if (run.undosUsed === 0 && run.score >= 20000) out.push('THRIFTY');
-
     const hour = new Date(run.startedAt).getHours();
     if (hour >= 0 && hour < 4) out.push('NIGHT_OWL');
 

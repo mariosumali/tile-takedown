@@ -4,7 +4,7 @@ type Props = {
   pieces: ReadonlyArray<PieceShape>;
 };
 
-/** Shared mini preview row (also used by the mobile next + undo combo card). */
+/** Shared mini preview row for upcoming tray pieces. */
 export function NextTrayPreview({ pieces }: { pieces: ReadonlyArray<PieceShape> }) {
   return (
     <div className="nt-row">

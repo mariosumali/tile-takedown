@@ -32,15 +32,12 @@ export default function GameOverCard({
   const delta = run.score - highScore;
   const isBest = run.score > highScore && run.score > 0;
   const deltaText = delta.toLocaleString();
-  const undoRemaining = Math.max(0, 3 - run.undosUsed);
   const peakTier = comboTier(run.comboPeak);
   const peakTierLabel =
     peakTier === 'none' ? null : peakTier.charAt(0).toUpperCase() + peakTier.slice(1);
   const recapLine = isBest
     ? 'New record. The paper remembers.'
-    : undoRemaining > 0
-      ? `${undoRemaining} undo${undoRemaining === 1 ? '' : 's'} left in the tin.`
-      : 'No undos spared. That was the whole handful.';
+    : 'No moves left. The board had the last word.';
   const [shareFeedback, setShareFeedback] = useState<string | null>(null);
 
   async function shareScorecard() {
@@ -52,7 +49,6 @@ export default function GameOverCard({
       `Quads: ${run.clears.quad}`,
       `Perfect clears: ${run.perfectClears}`,
       `Placements: ${run.placements}`,
-      `Undos used: ${run.undosUsed}/3`,
       `Duration: ${fmtDuration(durationMs)}`,
       typeof window !== 'undefined' ? window.location.origin : '',
     ].filter(Boolean).join('\n');
