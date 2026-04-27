@@ -1249,6 +1249,32 @@ button {
   width: fit-content;
   display: inline-block;
 }
+.combo-grace {
+  position: relative;
+  z-index: 2;
+  width: fit-content;
+  margin-top: 8px;
+  padding: 4px 10px;
+  background: var(--paper);
+  border: 2px solid var(--ink);
+  border-radius: var(--r-pill);
+  box-shadow: var(--shadow-sm);
+  color: var(--ink);
+  font-size: 11px;
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+  font-variation-settings: 'opsz' 9, 'wght' 700;
+  animation: comboGracePop 420ms cubic-bezier(0.34, 1.56, 0.64, 1);
+}
+.combo-grace[data-state='held'] {
+  background: var(--olive);
+  color: var(--paper);
+}
+@keyframes comboGracePop {
+  0% { transform: translateY(4px) scale(0.88); opacity: 0; }
+  70% { transform: translateY(-2px) scale(1.05); opacity: 1; }
+  100% { transform: translateY(0) scale(1); opacity: 1; }
+}
 
 /* ---------- Combo tiers ---------- */
 
@@ -1434,6 +1460,14 @@ button {
   gap: 20px;
   align-items: center;
 }
+.board-wrap-clutch .board {
+  animation: clutchBoardPulse 700ms ease-in-out 2;
+}
+@keyframes clutchBoardPulse {
+  0%, 100% { transform: translate(0, 0); }
+  35% { transform: translate(-2px, -2px); box-shadow: var(--shadow-xl); }
+  70% { transform: translate(1px, 1px); box-shadow: var(--shadow); }
+}
 .board-chrome {
   width: 100%;
   display: flex;
@@ -1496,7 +1530,7 @@ button {
   background: var(--paper-2);
   border-radius: var(--r-sm);
   border: 1.5px dashed rgba(28, 23, 20, 0.28);
-  transition: transform 140ms;
+  transition: transform 140ms, filter 140ms, box-shadow 140ms;
 }
 .board-grid .cell.filled {
   border: 2px solid var(--ink);
@@ -1514,6 +1548,7 @@ button {
   opacity: 0.38;
   border: 2px dashed var(--ink);
   box-shadow: none;
+  animation: ghostSettle 180ms cubic-bezier(0.34, 1.56, 0.64, 1);
 }
 .board-grid .cell.ghost.fill-tomato { background: var(--tomato); opacity: 0.45; }
 .board-grid .cell.ghost.fill-mustard { background: var(--mustard); opacity: 0.55; }
@@ -1521,9 +1556,60 @@ button {
 .board-grid .cell.ghost.fill-sky { background: var(--sky); opacity: 0.5; }
 .board-grid .cell.ghost.fill-plum { background: var(--plum); opacity: 0.5; }
 .board-grid .cell.ghost.fill-cream { background: var(--cream-tile); opacity: 0.55; }
+.board-grid .cell.ghost.illegal {
+  background: var(--tomato);
+  border-style: solid;
+  color: var(--paper);
+  opacity: 0.62;
+  animation: ghostInvalid 260ms ease-in-out;
+}
+.board-grid .cell.ghost.illegal::after {
+  content: 'no';
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  transform: translate(-50%, -50%) rotate(-6deg);
+  padding: 2px 5px;
+  background: var(--ink);
+  color: var(--paper);
+  border-radius: var(--r-sm);
+  font-size: 9px;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  font-variation-settings: 'opsz' 9, 'wght' 700;
+}
+.board-grid .cell.placed-settle {
+  animation: placedSettle 260ms cubic-bezier(0.2, 1.4, 0.3, 1);
+}
 .board-grid .cell.preclear {
   background: var(--preclear-color, var(--mustard));
   border: 2px solid var(--ink);
+}
+
+@keyframes ghostSettle {
+  0% { transform: translateY(3px) scale(0.94); }
+  100% { transform: translateY(0) scale(1); }
+}
+@keyframes ghostInvalid {
+  0%, 100% { transform: translateX(0); }
+  30% { transform: translateX(-2px); }
+  65% { transform: translateX(2px); }
+}
+@keyframes placedSettle {
+  0% {
+    transform: translate(-2px, -8px) rotate(-1.2deg) scale(1.08);
+    box-shadow: 5px 6px 0 0 var(--ink);
+    filter: brightness(1.14);
+  }
+  70% {
+    transform: translate(1px, 1px) rotate(0.4deg) scale(0.98);
+    box-shadow: 1px 1px 0 0 var(--ink);
+  }
+  100% {
+    transform: translate(0, 0) rotate(0) scale(1);
+    box-shadow: 2px 2px 0 0 var(--ink);
+    filter: brightness(1);
+  }
 }
 
 /* Void cells — unplayable squares inside a level's mask.
@@ -1723,7 +1809,7 @@ button {
   display: flex;
   align-items: center;
   justify-content: center;
-  transition: transform 120ms, box-shadow 120ms;
+  transition: transform 120ms, box-shadow 120ms, background 120ms;
   cursor: grab;
   position: relative;
 }
@@ -1736,8 +1822,11 @@ button {
   background: var(--mustard);
   border: 2px solid var(--ink);
   box-shadow: var(--shadow);
-  transform: translate(-3px, -3px);
+  transform: translate(-4px, -6px) rotate(-1deg);
   cursor: grabbing;
+}
+.tray-slot.active .piece-shape {
+  animation: pickupLift 220ms cubic-bezier(0.34, 1.56, 0.64, 1);
 }
 .tray-slot.active::before {
   content: 'Dragging';
@@ -1751,6 +1840,54 @@ button {
   border-radius: var(--r-pill);
   font-variation-settings: 'opsz' 9, 'wght' 600;
   letter-spacing: 0.08em;
+}
+.tray-slot.feedback-placed {
+  border-style: solid;
+  animation: slotPlacedSnap 320ms cubic-bezier(0.2, 1.35, 0.3, 1);
+}
+.tray-slot.feedback-invalid {
+  border-style: solid;
+  background: color-mix(in srgb, var(--tomato) 22%, var(--paper-2));
+  animation: slotInvalidPulse 360ms ease-in-out;
+}
+.tray-slot.feedback-invalid::after {
+  content: 'try again';
+  position: absolute;
+  right: 10px;
+  bottom: 10px;
+  background: var(--ink);
+  color: var(--paper);
+  border-radius: var(--r-pill);
+  padding: 3px 8px;
+  font-size: 10px;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  font-variation-settings: 'opsz' 9, 'wght' 700;
+}
+@keyframes pickupLift {
+  0% { transform: translateY(0) scale(1); }
+  70% { transform: translateY(-7px) scale(1.04); }
+  100% { transform: translateY(-4px) scale(1.02); }
+}
+@keyframes slotPlacedSnap {
+  0% {
+    transform: translate(-4px, -6px) rotate(-1deg) scale(1.02);
+    box-shadow: var(--shadow);
+  }
+  70% {
+    transform: translate(2px, 2px) rotate(0.5deg) scale(0.98);
+    box-shadow: 0 0 0 0 var(--ink);
+  }
+  100% {
+    transform: translate(0, 0) rotate(0) scale(1);
+    box-shadow: var(--shadow-sm);
+  }
+}
+@keyframes slotInvalidPulse {
+  0%, 100% { transform: translateX(0) rotate(0); }
+  25% { transform: translateX(-5px) rotate(-1deg); }
+  55% { transform: translateX(4px) rotate(1deg); }
+  80% { transform: translateX(-2px) rotate(-0.4deg); }
 }
 .slot-num {
   position: absolute;
@@ -2082,6 +2219,14 @@ button {
     padding-bottom: max(40px, env(safe-area-inset-bottom));
     gap: 14px;
   }
+  .classic-stage {
+    padding-top: 10px;
+    padding-bottom: max(24px, env(safe-area-inset-bottom));
+    gap: 10px;
+  }
+  .classic-stage .board-wrap {
+    gap: 14px;
+  }
 
   /* Game page — responsive board cells sized to *guarantee fit* inside the
      viewport. Math: viewport − 24 stage padding − 20 board padding − 4 border
@@ -2093,8 +2238,14 @@ button {
     --board-gap: 4px;
     --tray-cell: 20px;
   }
+  .classic-stage,
+  .classic-drag-ghost {
+    --board-cell: min(calc((100vw - 92px) / 8), 48px);
+    --tray-cell: 18px;
+  }
   .board { padding: 10px; }
   .board-chrome { padding: 0 2px; }
+  .classic-stage .board-chrome { display: none; }
   .live-chip { padding: 6px 10px; font-size: 12px; }
   .density-chip { font-size: 12px; }
   .density-chip strong { font-size: 15px; }
@@ -2134,6 +2285,9 @@ button {
      tray padding stay inside the viewport. */
   .tray-wrap { padding: 14px 10px; border-radius: var(--r-lg); }
   .tray { gap: 8px; }
+  .classic-stage .tray-wrap.tray-chrome-hidden .tray-slot {
+    min-height: 84px;
+  }
   .tray-slot {
     border-radius: 12px;
     min-width: calc(var(--tray-cell) * 4 + 20px);
@@ -2203,6 +2357,21 @@ button {
   }
   .board { padding: 8px; }
   .tray-wrap { padding: 12px 8px; }
+  .classic-stage {
+    --board-cell: calc((100vw - 88px) / 8);
+    --tray-cell: 16px;
+    padding-top: 8px;
+    padding-bottom: max(18px, env(safe-area-inset-bottom));
+    gap: 8px;
+  }
+  .classic-drag-ghost {
+    --board-cell: calc((100vw - 88px) / 8);
+    --tray-cell: 16px;
+  }
+  .classic-stage .board-wrap { gap: 10px; }
+  .classic-stage .tray-wrap.tray-chrome-hidden .tray-slot {
+    min-height: 76px;
+  }
   .tray-slot {
     min-width: calc(var(--tray-cell) * 4 + 16px);
     min-height: calc(var(--tray-cell) * 4 + 16px);
@@ -2260,6 +2429,23 @@ button {
   opacity: 0.92;
   will-change: transform;
 }
+.drag-ghost .tp-cell:not(.empty) {
+  animation: dragGhostGrip 180ms ease-out;
+}
+.drag-ghost-legal .tp-cell:not(.empty) {
+  filter: brightness(1.08);
+}
+.drag-ghost-invalid {
+  opacity: 0.78;
+}
+.drag-ghost-invalid .tp-cell:not(.empty) {
+  background: var(--tomato);
+  animation: ghostInvalid 260ms ease-in-out;
+}
+@keyframes dragGhostGrip {
+  from { filter: brightness(1.18); }
+  to { filter: brightness(1); }
+}
 
 /* ---------- Selected tray slot (tap-to-select) ---------- */
 .tray-slot.selected {
@@ -2305,6 +2491,45 @@ button {
 }
 .tray-wrap.tray-chrome-hidden .tray-slot.empty {
   opacity: 0;
+}
+
+/* ---------- Classic clutch card ---------- */
+.clutch-card {
+  width: min(100%, 520px);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 14px;
+  margin-top: -6px;
+  padding: 14px 16px;
+  background: var(--paper);
+  border: 2px solid var(--ink);
+  border-radius: var(--r-lg);
+  box-shadow: var(--shadow);
+  animation: clutchCardPop 360ms cubic-bezier(0.34, 1.56, 0.64, 1);
+}
+.clutch-card-live {
+  background: var(--mustard);
+}
+.clutch-card-ending {
+  background: color-mix(in srgb, var(--tomato) 24%, var(--paper));
+}
+.clutch-card p {
+  margin: 4px 0 0;
+  color: var(--ink-2);
+  font-size: 14px;
+  line-height: 1.35;
+  font-variation-settings: 'opsz' 14, 'wght' 600;
+}
+.clutch-card .btn {
+  flex: 0 0 auto;
+  padding: 10px 16px;
+  min-height: 42px;
+}
+@keyframes clutchCardPop {
+  0% { transform: translateY(12px) rotate(1deg) scale(0.94); opacity: 0; }
+  70% { transform: translateY(-2px) rotate(-0.4deg) scale(1.02); opacity: 1; }
+  100% { transform: translateY(0) rotate(0) scale(1); opacity: 1; }
 }
 
 /* ---------- Game-over card ---------- */
@@ -2383,11 +2608,21 @@ button {
   letter-spacing: 0.08em;
   font-size: 12px;
 }
+.go-note {
+  margin: 14px 0 0;
+  color: var(--ink-2);
+  font-size: 15px;
+  line-height: 1.4;
+  font-variation-settings: 'opsz' 14, 'wght' 650;
+}
 .go-stats {
   display: grid;
   grid-template-columns: repeat(4, 1fr);
   gap: 14px;
   margin-top: 32px;
+}
+.go-stats-classic {
+  grid-template-columns: repeat(3, 1fr);
 }
 .go-stat {
   background: var(--paper-2);
@@ -2440,7 +2675,8 @@ button {
 }
 
 @media (max-width: 640px) {
-  .go-stats { grid-template-columns: 1fr 1fr; }
+  .go-stats,
+  .go-stats-classic { grid-template-columns: 1fr 1fr; }
   .level-badge-list { grid-template-columns: 1fr; }
   .gameover-card { padding: 28px 24px; }
   .go-score .num { font-size: 56px; }
