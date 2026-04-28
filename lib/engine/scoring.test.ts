@@ -6,7 +6,6 @@ import {
   placementPoints,
   scoreTurn,
   COMBO_CAP,
-  COMBO_DECAY_PER_MISS,
   COMBO_TIERS,
   COMBO_GRACE_TURNS,
   PERFECT_CLEAR_BONUS,
@@ -53,10 +52,10 @@ describe('scoring', () => {
     expect(turn.multiplier).toBe(1);
   });
 
-  it('combo decays to zero over consecutive non-clear turns after grace', () => {
+  it('combo resets to zero on the next non-clear turn after grace', () => {
     let prev = 3;
     let prevGrace = 1;
-    const decayed: number[] = [];
+    const combos: number[] = [];
     for (let i = 0; i < 5; i++) {
       const { combo, comboGrace } = scoreTurn({
         cellsPlaced: 2,
@@ -65,14 +64,14 @@ describe('scoring', () => {
         prevComboGrace: prevGrace,
         perfectClear: false,
       });
-      decayed.push(combo);
+      combos.push(combo);
       prev = combo;
       prevGrace = comboGrace;
     }
-    expect(decayed).toEqual([3, 1, 0, 0, 0]);
+    expect(combos).toEqual([3, 0, 0, 0, 0]);
   });
 
-  it('decay cannot drive combo below zero', () => {
+  it('reset keeps combo at zero when already inactive', () => {
     const { combo } = scoreTurn({
       cellsPlaced: 3,
       linesCleared: 0,
@@ -82,7 +81,7 @@ describe('scoring', () => {
     expect(combo).toBe(0);
   });
 
-  it('clearing after a decay step keeps the combo climbing', () => {
+  it('clearing after a combo reset starts a new combo', () => {
     const miss = scoreTurn({
       cellsPlaced: 2,
       linesCleared: 0,
@@ -96,9 +95,9 @@ describe('scoring', () => {
       prevCombo: miss.combo,
       perfectClear: false,
     });
-    expect(miss.combo).toBe(1);
-    expect(hit.combo).toBe(2);
-    expect(hit.turn.multiplier).toBe(comboMultiplier(2));
+    expect(miss.combo).toBe(0);
+    expect(hit.combo).toBe(1);
+    expect(hit.turn.multiplier).toBe(comboMultiplier(1));
   });
 
   it('single clear + first combo step applies the first-step multiplier', () => {
@@ -122,7 +121,7 @@ describe('scoring', () => {
       prevCombo: 2,
       perfectClear: false,
     });
-    expect(combo).toBe(Math.max(0, 2 - COMBO_DECAY_PER_MISS));
+    expect(combo).toBe(0);
     expect(comboGrace).toBe(0);
   });
 
