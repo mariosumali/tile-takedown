@@ -6,6 +6,7 @@ import {
   placementPoints,
   scoreTurn,
   COMBO_CAP,
+  COMBO_DECAY_PER_MISS,
   COMBO_TIERS,
   COMBO_GRACE_TURNS,
   PERFECT_CLEAR_BONUS,
@@ -68,7 +69,7 @@ describe('scoring', () => {
       prev = combo;
       prevGrace = comboGrace;
     }
-    expect(decayed).toEqual([3, 2, 1, 0, 0]);
+    expect(decayed).toEqual([3, 1, 0, 0, 0]);
   });
 
   it('decay cannot drive combo below zero', () => {
@@ -95,9 +96,9 @@ describe('scoring', () => {
       prevCombo: miss.combo,
       perfectClear: false,
     });
-    expect(miss.combo).toBe(2);
-    expect(hit.combo).toBe(3);
-    expect(hit.turn.multiplier).toBe(comboMultiplier(3));
+    expect(miss.combo).toBe(1);
+    expect(hit.combo).toBe(2);
+    expect(hit.turn.multiplier).toBe(comboMultiplier(2));
   });
 
   it('single clear + first combo step applies the first-step multiplier', () => {
@@ -121,7 +122,7 @@ describe('scoring', () => {
       prevCombo: 2,
       perfectClear: false,
     });
-    expect(combo).toBe(1);
+    expect(combo).toBe(Math.max(0, 2 - COMBO_DECAY_PER_MISS));
     expect(comboGrace).toBe(0);
   });
 

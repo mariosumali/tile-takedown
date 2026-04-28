@@ -11,6 +11,7 @@ export const COMBO_CAP = 4.0;
  * keeps combo chasing tense without making every setup move feel like a whiff.
  */
 export const COMBO_GRACE_TURNS = 1;
+export const COMBO_DECAY_PER_MISS = 2;
 
 /** Combo tier names, used by HUD and VFX overlays to drive visual intensity. */
 export type ComboTier = 'none' | 'spark' | 'hot' | 'fire' | 'inferno';
@@ -78,7 +79,7 @@ export function scoreTurn(args: {
     combo = args.prevCombo;
     comboGrace = prevGrace - 1;
   } else {
-    combo = Math.max(0, args.prevCombo - 1);
+    combo = Math.max(0, args.prevCombo - COMBO_DECAY_PER_MISS);
     comboGrace = 0;
   }
 
