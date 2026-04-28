@@ -1,6 +1,6 @@
 'use client';
 
-import { motion, useReducedMotion } from 'framer-motion';
+import { motion } from 'framer-motion';
 import type {
   BoardState,
   Obstacle,
@@ -77,12 +77,11 @@ function popDelaySec(
   c: number,
   rows: ReadonlyArray<number>,
   cols: ReadonlyArray<number>,
-  staggerMs: number = STAGGER_MS,
 ): number {
   const inRow = rows.includes(r);
   const inCol = cols.includes(c);
-  const rowDelay = inRow ? c * staggerMs : Infinity;
-  const colDelay = inCol ? r * staggerMs : Infinity;
+  const rowDelay = inRow ? c * STAGGER_MS : Infinity;
+  const colDelay = inCol ? r * STAGGER_MS : Infinity;
   return Math.min(rowDelay, colDelay) / 1000;
 }
 
@@ -120,7 +119,6 @@ export default function GameBoard({
   clearingBoard = null,
   onClearComplete,
 }: Props) {
-  const reduceMotion = useReducedMotion();
   const rowCount = board.length;
   const colCount = board[0]?.length ?? 0;
   const preclearColor = ghostColor ?? 'olive';
@@ -143,10 +141,6 @@ export default function GameBoard({
   }
 
   const isClearing = clearingRows.length + clearingCols.length > 0;
-  const clearLineCount = clearingRows.length + clearingCols.length;
-  const popDuration =
-    clearLineCount >= 3 ? 0.58 : clearLineCount === 2 ? POP_DURATION : 0.44;
-  const staggerMs = clearLineCount >= 3 ? 34 : clearLineCount === 2 ? STAGGER_MS : 20;
   const settleSet = new Set(settleCells.map(({ row, col }) => `${row}-${col}`));
 
   const clearingCells: Array<{ r: number; c: number; color: PieceColor; delay: number }> = [];
@@ -157,7 +151,7 @@ export default function GameBoard({
         if (!isPlayable(mask, r, c)) continue;
         const color = clearingBoard[r]?.[c];
         if (!color) continue;
-        const delay = popDelaySec(r, c, clearingRows, clearingCols, staggerMs);
+        const delay = popDelaySec(r, c, clearingRows, clearingCols);
         clearingCells.push({ r, c, color, delay });
         if (delay > maxDelay) maxDelay = delay;
       }
@@ -168,7 +162,7 @@ export default function GameBoard({
         if (!isPlayable(mask, r, c)) continue;
         const color = clearingBoard[r]?.[c];
         if (!color) continue;
-        const delay = popDelaySec(r, c, clearingRows, clearingCols, staggerMs);
+        const delay = popDelaySec(r, c, clearingRows, clearingCols);
         clearingCells.push({ r, c, color, delay });
         if (delay > maxDelay) maxDelay = delay;
       }
@@ -249,7 +243,7 @@ export default function GameBoard({
 
               const justVacated = !v && isClearingCell;
               const delay = justVacated
-                ? popDelaySec(r, c, clearingRows, clearingCols, staggerMs) + popDuration
+                ? popDelaySec(r, c, clearingRows, clearingCols) + POP_DURATION
                 : 0;
 
               return (
@@ -263,8 +257,8 @@ export default function GameBoard({
                   transition={
                     justVacated
                       ? {
-                          duration: reduceMotion ? 0.01 : FADEIN_DURATION + 0.001,
-                          delay: reduceMotion ? 0 : delay,
+                          duration: FADEIN_DURATION + 0.001,
+                          delay,
                           times: [0, 0.001, 1],
                         }
                       : { duration: 0 }
@@ -322,26 +316,22 @@ export default function GameBoard({
                     y: 0,
                     filter: 'brightness(1)',
                   }}
-                  animate={
-                    reduceMotion
-                      ? { opacity: [1, 0] }
-                      : {
-                          scale: [1.0, 1.08, 1.28, 0],
-                          rotate: [0, sign * 4, 0, 0],
-                          filter: [
-                            'brightness(1)',
-                            'brightness(1)',
-                            'brightness(1.5)',
-                            'brightness(1.5)',
-                          ],
-                          y: [0, 0, 0, -12],
-                          opacity: [1, 1, 1, 0],
-                        }
-                  }
+                  animate={{
+                    scale: [1.0, 1.08, 1.28, 0],
+                    rotate: [0, sign * 4, 0, 0],
+                    filter: [
+                      'brightness(1)',
+                      'brightness(1)',
+                      'brightness(1.5)',
+                      'brightness(1.5)',
+                    ],
+                    y: [0, 0, 0, -12],
+                    opacity: [1, 1, 1, 0],
+                  }}
                   transition={{
-                    duration: reduceMotion ? 0.01 : popDuration,
-                    delay: reduceMotion ? 0 : delay,
-                    times: reduceMotion ? [0, 1] : [...POP_TIMES],
+                    duration: POP_DURATION,
+                    delay,
+                    times: [...POP_TIMES],
                     ease: 'easeOut',
                   }}
                   onAnimationComplete={

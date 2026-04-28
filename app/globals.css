@@ -1447,21 +1447,6 @@ button {
   100% { transform: translateY(-18px); opacity: 0; }
 }
 
-@media (prefers-reduced-motion: reduce) {
-  .card.combo,
-  .card.combo[data-combo-tier='hot'],
-  .card.combo[data-combo-tier='fire'],
-  .card.combo[data-combo-tier='inferno'] {
-    animation: none !important;
-  }
-  .card.combo[data-combo-tier='spark']::before,
-  .card.combo[data-combo-tier='fire']::before,
-  .card.combo[data-combo-tier='inferno']::before,
-  .card.combo[data-combo-tier='inferno']::after {
-    animation: none !important;
-  }
-}
-
 /* ---------- Game board ---------- */
 .board-wrap {
   display: flex;
@@ -3582,8 +3567,7 @@ button {
 
 /* ============================================================
    Big-clear FX — screen flash, shockwave, confetti, banner, shake.
-   Owned by components/game/ClearEffects.tsx. Keep pure CSS so the
-   global prefers-reduced-motion rule below disables them automatically.
+   Owned by components/game/ClearEffects.tsx.
    ============================================================ */
 
 .clear-fx {
@@ -3926,17 +3910,6 @@ button {
   12% { opacity: 1; transform: translateX(-50%) scaleX(1); }
   40% { opacity: 0.6; transform: translateX(-50%) scaleX(0.9); }
   100% { opacity: 0; transform: translateX(-50%) scaleX(1); }
-}
-
-/* ---------- Reduced motion ---------- */
-@media (prefers-reduced-motion: reduce) {
-  *,
-  *::before,
-  *::after {
-    animation-duration: 0.01ms !important;
-    animation-iteration-count: 1 !important;
-    transition-duration: 0.01ms !important;
-  }
 }
 
 /* ---------- Accessibility: focus rings + screen-reader helpers ---------- */
